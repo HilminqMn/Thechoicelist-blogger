@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { createBrowserSupabaseClient, getAdminRedirectUrl } from '../../lib/supabase-browser';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  createBrowserSupabaseClient,
+  getAdminRedirectUrl,
+  getSupabaseConfigError,
+} from '../../lib/supabase-browser';
 import AdminLogin from './AdminLogin.vue';
 import AdminSignup from './AdminSignup.vue';
 import AdminDashboardLayout from './AdminDashboardLayout.vue';
@@ -8,7 +13,8 @@ import PostsTable from './PostsTable.vue';
 import PostEditor from './PostEditor.vue';
 import type { Category, Post, PostFormData } from '../../lib/types';
 
-const supabase = createBrowserSupabaseClient();
+const supabase = ref<SupabaseClient | null>(createBrowserSupabaseClient());
+const configError = ref(getSupabaseConfigError() ?? '');
 
 const session = ref<{ user: { email?: string } } | null>(null);
 const loading = ref(true);
@@ -38,65 +44,95 @@ const pageSubtitle = computed(() => {
 const NON_ADMIN_ERROR =
   'อีเมลนี้ยังไม่ได้รับสิทธิ์แอดมิน กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มอีเมลในรายการ admin_users';
 
+const displayError = computed(() => configError.value || errorMessage.value);
+
+function decodeOAuthDescription(raw: string | null): string {
+  if (!raw) return '';
+  try {
+    return decodeURIComponent(raw.replace(/\+/g, ' '));
+  } catch {
+    return raw;
+  }
+}
+
+function mapAuthErrorMessage(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('code verifier') || lower.includes('pkce')) {
+    return 'เข้าสู่ระบบไม่สำเร็จ: ไม่พบ PKCE state (ลองกดเข้าสู่ระบบใหม่ในหน้าต่างเดิม ห้ามเปิดลิงก์จากอีเมล/แท็บอื่น)';
+  }
+  if (lower.includes('invalid grant') || lower.includes('auth code')) {
+    return 'เข้าสู่ระบบไม่สำเร็จ: รหัส OAuth หมดอายุหรือใช้แล้ว กรุณากดเข้าสู่ระบบด้วย Google อีกครั้ง';
+  }
+  if (lower.includes('redirect') || lower.includes('not allowed')) {
+    return `เข้าสู่ระบบไม่สำเร็จ: Redirect URL ไม่ได้รับอนุญาต — เพิ่ม ${getAdminRedirectUrl()} ใน Supabase → Authentication → URL Configuration → Redirect URLs`;
+  }
+  return `เข้าสู่ระบบไม่สำเร็จ: ${message}`;
+}
+
+function hasAuthCallbackParams(): boolean {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return (
+    query.has('code') ||
+    query.has('error') ||
+    hash.has('access_token') ||
+    hash.has('error')
+  );
+}
+
 function cleanAuthUrl() {
   const url = new URL(window.location.href);
   url.searchParams.delete('code');
   url.searchParams.delete('error');
   url.searchParams.delete('error_description');
+  url.searchParams.delete('error_code');
   url.hash = '';
   window.history.replaceState({}, '', url.pathname);
 }
 
-async function handleAuthCallback(): Promise<void> {
+function readOAuthCallbackError(): string | null {
   const queryParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
 
   const oauthError = queryParams.get('error') ?? hashParams.get('error');
-  const oauthErrorDescription =
-    queryParams.get('error_description') ?? hashParams.get('error_description');
+  if (!oauthError) return null;
 
+  const description = decodeOAuthDescription(
+    queryParams.get('error_description') ?? hashParams.get('error_description'),
+  );
+
+  if (description) return mapAuthErrorMessage(description);
+  if (oauthError === 'access_denied') return 'คุณยกเลิกการเข้าสู่ระบบด้วย Google';
+  return mapAuthErrorMessage(oauthError);
+}
+
+async function handleAuthCallback(): Promise<void> {
+  const oauthError = readOAuthCallbackError();
   if (oauthError) {
-    errorMessage.value =
-      oauthErrorDescription ?? 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+    errorMessage.value = oauthError;
     cleanAuthUrl();
-    return;
-  }
-
-  const code = queryParams.get('code');
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    cleanAuthUrl();
-    if (error) {
-      errorMessage.value = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
-    }
-    return;
-  }
-
-  // Legacy implicit flow (hash fragment)
-  const accessToken = hashParams.get('access_token');
-  const refreshToken = hashParams.get('refresh_token');
-  if (accessToken && refreshToken) {
-    const { error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-    cleanAuthUrl();
-    if (error) {
-      errorMessage.value = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
-    }
   }
 }
 
 async function loadSession() {
-  const { data } = await supabase.auth.getSession();
+  if (!supabase.value) return;
+
+  const { data, error } = await supabase.value.auth.getSession();
+  if (error) {
+    errorMessage.value = mapAuthErrorMessage(error.message);
+    session.value = null;
+    return;
+  }
   session.value = data.session;
 }
 
 async function verifyAdminAccess(): Promise<boolean> {
-  const { data, error } = await supabase.rpc('is_admin');
+  if (!supabase.value) return false;
+
+  const { data, error } = await supabase.value.rpc('is_admin');
 
   if (error) {
-    await supabase.auth.signOut();
+    await supabase.value.auth.signOut();
     session.value = null;
     errorMessage.value =
       'ไม่สามารถตรวจสอบสิทธิ์แอดมินได้ กรุณารัน migration 002_admin_rpc_grant.sql ใน Supabase';
@@ -104,9 +140,12 @@ async function verifyAdminAccess(): Promise<boolean> {
   }
 
   if (!data) {
-    await supabase.auth.signOut();
+    const email = session.value?.user?.email;
+    await supabase.value.auth.signOut();
     session.value = null;
-    errorMessage.value = NON_ADMIN_ERROR;
+    errorMessage.value = email
+      ? `${NON_ADMIN_ERROR} (อีเมลที่ใช้: ${email})`
+      : NON_ADMIN_ERROR;
     return false;
   }
 
@@ -114,9 +153,11 @@ async function verifyAdminAccess(): Promise<boolean> {
 }
 
 async function loadData() {
+  if (!supabase.value) return;
+
   const [categoriesRes, postsRes] = await Promise.all([
-    supabase.from('categories').select('*').order('name'),
-    supabase.from('posts').select('*, categories(*)').order('updated_at', { ascending: false }),
+    supabase.value.from('categories').select('*').order('name'),
+    supabase.value.from('posts').select('*, categories(*)').order('updated_at', { ascending: false }),
   ]);
 
   if (categoriesRes.error) throw categoriesRes.error;
@@ -136,9 +177,26 @@ async function initSession() {
 }
 
 async function init() {
+  if (!supabase.value) {
+    loading.value = false;
+    return;
+  }
+
+  const hadAuthCallback = hasAuthCallbackParams();
+
   try {
     await handleAuthCallback();
     await loadSession();
+
+    if (hadAuthCallback && !errorMessage.value) {
+      if (!session.value) {
+        errorMessage.value =
+          'เข้าสู่ระบบไม่สำเร็จหลัง redirect จาก Google — ตรวจ Redirect URLs ใน Supabase ว่ามี ' +
+          `${getAdminRedirectUrl()} และ redeploy Vercel หลังตั้ง env vars`;
+      }
+      cleanAuthUrl();
+    }
+
     await initSession();
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
@@ -148,18 +206,25 @@ async function init() {
 }
 
 async function handleLogin() {
+  if (!supabase.value) {
+    errorMessage.value = configError.value || 'ยังไม่ได้ตั้งค่า Supabase';
+    return;
+  }
+
   errorMessage.value = '';
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.value.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: getAdminRedirectUrl(),
     },
   });
-  if (error) errorMessage.value = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
+  if (error) errorMessage.value = mapAuthErrorMessage(error.message);
 }
 
 async function handleLogout() {
-  await supabase.auth.signOut();
+  if (!supabase.value) return;
+
+  await supabase.value.auth.signOut();
   session.value = null;
   posts.value = [];
   view.value = 'posts';
@@ -190,6 +255,8 @@ function handleNavigate(navView: 'posts' | 'editor') {
 }
 
 async function handleSave(form: PostFormData) {
+  if (!supabase.value) return;
+
   errorMessage.value = '';
   const payload = {
     title: form.title,
@@ -204,8 +271,8 @@ async function handleSave(form: PostFormData) {
   };
 
   const result = editingPost.value
-    ? await supabase.from('posts').update(payload).eq('id', editingPost.value.id)
-    : await supabase.from('posts').insert(payload);
+    ? await supabase.value.from('posts').update(payload).eq('id', editingPost.value.id)
+    : await supabase.value.from('posts').insert(payload);
 
   if (result.error) {
     errorMessage.value = result.error.message;
@@ -217,9 +284,10 @@ async function handleSave(form: PostFormData) {
 }
 
 async function handleDelete(postId: string) {
+  if (!supabase.value) return;
   if (!confirm('ยืนยันการลบบทความนี้?')) return;
 
-  const { error } = await supabase.from('posts').delete().eq('id', postId);
+  const { error } = await supabase.value.from('posts').delete().eq('id', postId);
   if (error) {
     errorMessage.value = error.message;
     return;
@@ -229,7 +297,12 @@ async function handleDelete(postId: string) {
 }
 
 onMounted(() => {
-  supabase.auth.onAuthStateChange(async (event, newSession) => {
+  if (!supabase.value) {
+    loading.value = false;
+    return;
+  }
+
+  supabase.value.auth.onAuthStateChange(async (event, newSession) => {
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       session.value = newSession;
       if (newSession) {
@@ -258,13 +331,13 @@ onMounted(() => {
     <!-- Auth: login-02 / signup-02 (split layout) -->
     <AdminLogin
       v-else-if="!isAuthenticated && authView === 'login'"
-      :error="errorMessage"
+      :error="displayError"
       @login="handleLogin"
       @show-signup="authView = 'signup'"
     />
     <AdminSignup
       v-else-if="!isAuthenticated && authView === 'signup'"
-      :error="errorMessage"
+      :error="displayError"
       @login="handleLogin"
       @show-login="authView = 'login'"
     />
@@ -279,8 +352,8 @@ onMounted(() => {
       @navigate="handleNavigate"
       @logout="handleLogout"
     >
-      <div v-if="errorMessage" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {{ errorMessage }}
+      <div v-if="displayError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ displayError }}
       </div>
 
       <!-- Stats cards (dashboard-01 pattern) -->
