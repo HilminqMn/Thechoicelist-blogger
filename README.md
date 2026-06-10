@@ -29,17 +29,16 @@ npm run dev
 
 ## Supabase Setup
 
+ดูคู่มือฉบับเต็ม: **[docs/SUPABASE_OAUTH_SETUP.md](docs/SUPABASE_OAUTH_SETUP.md)**
+
+สรุปสั้นๆ:
+
 1. สร้างโปรเจกต์ที่ [supabase.com](https://supabase.com)
-2. รัน SQL จาก `supabase/migrations/001_schema.sql`
-3. เปิด **Authentication > Providers > Google OAuth**
-4. เพิ่มอีเมลแอดมิน:
-   ```sql
-   INSERT INTO admin_users (email) VALUES ('your@gmail.com');
-   ```
-5. Deploy Edge Function (optional):
-   ```bash
-   supabase functions deploy daily-content
-   ```
+2. รัน SQL จาก `supabase/migrations/001_schema.sql` และ `002_admin_rpc_grant.sql`
+3. เปิด **Authentication → Providers → Google** + ตั้งค่า Google Cloud Console
+4. ตั้ง **Site URL** และ **Redirect URLs** (localhost + Vercel `/admin`)
+5. เพิ่มอีเมลแอดมิน: `INSERT INTO admin_users (email) VALUES ('your@gmail.com');`
+6. Deploy Edge Function (optional): `supabase functions deploy daily-content`
 
 ## Pages
 

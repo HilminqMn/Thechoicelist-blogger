@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { createBrowserSupabaseClient } from '../../lib/supabase-browser';
+import { createBrowserSupabaseClient, getAdminRedirectUrl } from '../../lib/supabase-browser';
 import AdminLogin from './AdminLogin.vue';
 import AdminDashboardLayout from './AdminDashboardLayout.vue';
 import PostsTable from './PostsTable.vue';
@@ -33,9 +33,82 @@ const pageSubtitle = computed(() => {
   return `จัดการบทความทั้งหมด ${posts.value.length} รายการ`;
 });
 
+const NON_ADMIN_ERROR =
+  'อีเมลนี้ยังไม่ได้รับสิทธิ์แอดมิน กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มอีเมลในรายการ admin_users';
+
+function cleanAuthUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('code');
+  url.searchParams.delete('error');
+  url.searchParams.delete('error_description');
+  url.hash = '';
+  window.history.replaceState({}, '', url.pathname);
+}
+
+async function handleAuthCallback(): Promise<void> {
+  const queryParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+  const oauthError = queryParams.get('error') ?? hashParams.get('error');
+  const oauthErrorDescription =
+    queryParams.get('error_description') ?? hashParams.get('error_description');
+
+  if (oauthError) {
+    errorMessage.value =
+      oauthErrorDescription ?? 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+    cleanAuthUrl();
+    return;
+  }
+
+  const code = queryParams.get('code');
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    cleanAuthUrl();
+    if (error) {
+      errorMessage.value = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
+    }
+    return;
+  }
+
+  // Legacy implicit flow (hash fragment)
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  if (accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    cleanAuthUrl();
+    if (error) {
+      errorMessage.value = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
+    }
+  }
+}
+
 async function loadSession() {
   const { data } = await supabase.auth.getSession();
   session.value = data.session;
+}
+
+async function verifyAdminAccess(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_admin');
+
+  if (error) {
+    await supabase.auth.signOut();
+    session.value = null;
+    errorMessage.value =
+      'ไม่สามารถตรวจสอบสิทธิ์แอดมินได้ กรุณารัน migration 002_admin_rpc_grant.sql ใน Supabase';
+    return false;
+  }
+
+  if (!data) {
+    await supabase.auth.signOut();
+    session.value = null;
+    errorMessage.value = NON_ADMIN_ERROR;
+    return false;
+  }
+
+  return true;
 }
 
 async function loadData() {
@@ -51,12 +124,20 @@ async function loadData() {
   posts.value = (postsRes.data ?? []) as Post[];
 }
 
-async function init() {
-  try {
-    await loadSession();
-    if (session.value) {
+async function initSession() {
+  if (session.value) {
+    const isAdmin = await verifyAdminAccess();
+    if (isAdmin) {
       await loadData();
     }
+  }
+}
+
+async function init() {
+  try {
+    await handleAuthCallback();
+    await loadSession();
+    await initSession();
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
   } finally {
@@ -69,10 +150,10 @@ async function handleLogin() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/admin`,
+      redirectTo: getAdminRedirectUrl(),
     },
   });
-  if (error) errorMessage.value = error.message;
+  if (error) errorMessage.value = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
 }
 
 async function handleLogout() {
@@ -80,6 +161,7 @@ async function handleLogout() {
   session.value = null;
   posts.value = [];
   view.value = 'posts';
+  errorMessage.value = '';
 }
 
 function openCreate() {
@@ -145,18 +227,19 @@ async function handleDelete(postId: string) {
 }
 
 onMounted(() => {
-  init();
-
-  supabase.auth.onAuthStateChange(async (_event, newSession) => {
-    session.value = newSession;
-    if (newSession) {
-      try {
-        await loadData();
-      } catch (err) {
-        errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
+  supabase.auth.onAuthStateChange(async (event, newSession) => {
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      session.value = newSession;
+      if (newSession) {
+        await initSession();
       }
+    } else if (event === 'SIGNED_OUT') {
+      session.value = null;
+      posts.value = [];
     }
   });
+
+  init();
 });
 </script>
 
