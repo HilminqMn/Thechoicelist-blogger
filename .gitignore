@@ -1,7 +1,12 @@
 # dependencies
 node_modules/
 node_modules.bak*/
+node_modules_broken_*/
 .npm-cache/
+.npm-cache-temp/
+.npm-cache_broken_*/
+supabase/.temp/
+supabase/.npm-cache/
 
 # build
 dist/
@@ -24,3 +29,4 @@ Thumbs.db
 
 # Vercel
 .vercel/
+.vercel
