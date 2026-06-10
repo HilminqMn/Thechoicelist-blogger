@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { createBrowserSupabaseClient, getAdminRedirectUrl } from '../../lib/supabase-browser';
 import AdminLogin from './AdminLogin.vue';
+import AdminSignup from './AdminSignup.vue';
 import AdminDashboardLayout from './AdminDashboardLayout.vue';
 import PostsTable from './PostsTable.vue';
 import PostEditor from './PostEditor.vue';
@@ -16,6 +17,7 @@ const posts = ref<Post[]>([]);
 const view = ref<'posts' | 'editor'>('posts');
 const editingPost = ref<Post | null>(null);
 const errorMessage = ref('');
+const authView = ref<'login' | 'signup'>('login');
 
 const isAuthenticated = computed(() => !!session.value);
 
@@ -253,11 +255,18 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Login (login-02) -->
+    <!-- Auth: login-01 (centered) / signup-02 (split) -->
     <AdminLogin
-      v-else-if="!isAuthenticated"
+      v-else-if="!isAuthenticated && authView === 'login'"
       :error="errorMessage"
       @login="handleLogin"
+      @show-signup="authView = 'signup'"
+    />
+    <AdminSignup
+      v-else-if="!isAuthenticated && authView === 'signup'"
+      :error="errorMessage"
+      @signup="handleLogin"
+      @show-login="authView = 'login'"
     />
 
     <!-- Dashboard (dashboard-01) -->

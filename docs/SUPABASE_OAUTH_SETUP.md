@@ -21,6 +21,7 @@
 
 1. `supabase/migrations/001_schema.sql` — สร้างตาราง, RLS, ฟังก์ชัน `is_admin()`
 2. `supabase/migrations/002_admin_rpc_grant.sql` — อนุญาตให้ client เรียก `is_admin()` ตรวจสอบสิทธิ์แอดมิน
+3. `supabase/migrations/003_seed_admin_user.sql` — เพิ่มอีเมลแอดมินเริ่มต้น (หรือรัน SQL ด้านล่างเอง)
 
 ---
 
@@ -29,7 +30,15 @@
 รันใน SQL Editor (แทนที่อีเมลด้วย Google account จริง):
 
 ```sql
-INSERT INTO admin_users (email) VALUES ('your@gmail.com');
+INSERT INTO admin_users (email) VALUES ('hilming.mn@gmail.com')
+ON CONFLICT (email) DO NOTHING;
+```
+
+หรืออีเมลอื่นที่ต้องการ:
+
+```sql
+INSERT INTO admin_users (email) VALUES ('your@gmail.com')
+ON CONFLICT (email) DO NOTHING;
 ```
 
 เฉพาะอีเมลใน `admin_users` เท่านั้นที่เข้าแดชบอร์ดได้
