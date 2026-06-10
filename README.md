@@ -64,7 +64,11 @@ npm run build
 npm run preview
 ```
 
-โปรเจกต์ใช้ `@astrojs/vercel` adapter (`output: 'server'`) — deploy ผ่าน Vercel Dashboard หรือเชื่อม GitHub repo
+โปรเจกต์ใช้ `@astrojs/vercel` adapter (`output: 'server'`) — deploy ผ่าน Vercel Dashboard หรือ Vercel CLI
+
+**GitHub repo:** [HilminqMn/Thechoicelist-blogger](https://github.com/HilminqMn/Thechoicelist-blogger)
+
+> ⚠️ หากเคย deploy ไปบัญชี Vercel ผิด (เช่น `thechoicelist-blogger.vercel.app`) ให้ทำตามขั้นตอน **ย้ายไปบัญชีใหม่** ด้านล่าง
 
 ### Environment Variables (Vercel Dashboard → Settings → Environment Variables)
 
@@ -74,14 +78,46 @@ npm run preview
 | `PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Optional | สำหรับ Edge Functions / server-only |
 
-### Deploy Steps
+### ย้ายไปบัญชี Vercel ใหม่ (ทำบน Dashboard — แนะนำ)
 
-1. Push โค้ดขึ้น GitHub (`git push -u origin main`)
-2. ไปที่ [vercel.com/new](https://vercel.com/new) → Import Git Repository
-3. เลือก repo `Thechoicelist-blogger`
-4. Framework Preset: **Astro** (auto-detect)
-5. เพิ่ม env vars ด้านบน → Deploy
-6. ใน Supabase Auth → URL Configuration เพิ่ม `https://your-domain.vercel.app/admin` เป็น Redirect URL
+ทำบนเบราว์เซอร์ของคุณเอง (เราไม่สามารถล็อกอินบัญชีเก่าแทนคุณได้):
+
+1. **ล็อกอินบัญชี Vercel ใหม่** ที่ [vercel.com](https://vercel.com)
+2. **เชื่อม GitHub:** Settings → Integrations → GitHub → Install / Configure → อนุญาต repo `HilminqMn/Thechoicelist-blogger`
+3. **Import โปรเจกต์:** [vercel.com/new](https://vercel.com/new) → เลือก `HilminqMn/Thechoicelist-blogger`
+4. **Framework Preset:** Astro (auto-detect) — ไม่ต้องมี `vercel.json` ใน repo
+5. **เพิ่ม Environment Variables** ตามตารางด้านบน (Production + Preview)
+6. กด **Deploy** — จะได้ URL ใหม่ เช่น `https://thechoicelist-blogger-xxx.vercel.app`
+7. **Supabase:** Authentication → URL Configuration → เพิ่ม Redirect URL:
+   - `https://<domain-ใหม่ของคุณ>/admin`
+   - `https://<domain-ใหม่ของคุณ>/admin/**` (ถ้าใช้ wildcard)
+8. **(ทางเลือก) ลบโปรเจกต์บนบัญชีเก่า:** ล็อกอินบัญชี Vercel เก่า → Projects → `thechoicelist-blogger` → Settings → Delete Project — เพื่อไม่ให้ URL เก่า (`thechoicelist-blogger.vercel.app`) ยังทำงานอยู่
+
+### Deploy ผ่าน CLI (ทางเลือก)
+
+ใช้เมื่อต้องการ deploy จากเครื่องโดยตรง:
+
+```bash
+# ลบการเชื่อมโปรเจกต์เก่า (ถ้ามีโฟลเดอร์ .vercel ในเครื่อง)
+# โฟลเดอร์นี้อยู่ใน .gitignore แล้ว — ไม่ถูก push ขึ้น GitHub
+
+# ล็อกอินบัญชี Vercel ใหม่ (เปิดเบราว์เซอร์ให้ authorize)
+npx vercel login
+
+# เชื่อมโปรเจกต์กับบัญชี/ทีมใหม่
+npx vercel link
+
+# deploy production
+npx vercel --prod
+```
+
+ตรวจสอบว่าล็อกอินบัญชีถูกต้อง: `npx vercel whoami`
+
+### สิ่งที่ทำใน repo แล้ว
+
+- ไม่มี `vercel.json` ที่ผูก `projectId` กับบัญชีเก่า
+- โฟลเดอร์ `.vercel/` อยู่ใน `.gitignore` — ลบ local link เก่าแล้ว ต้อง `vercel link` ใหม่หลังเปลี่ยนบัญชี
+- ไม่มี URL Vercel แบบ hardcode ในโค้ด
 
 ### Admin UI
 
