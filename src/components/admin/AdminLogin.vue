@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminBrandLogo from './AdminBrandLogo.vue';
+import AdminAuthCoverPanel from './AdminAuthCoverPanel.vue';
 import GoogleAuthButton from './GoogleAuthButton.vue';
 
 defineProps<{
@@ -13,16 +14,16 @@ defineEmits<{
 </script>
 
 <template>
-  <!-- login-01: centered card, minimal -->
-  <div class="flex min-h-svh w-full items-center justify-center bg-slate-50 p-6 md:p-10">
-    <div class="flex w-full max-w-sm flex-col gap-6">
-      <AdminBrandLogo centered />
+  <!-- login-02: split layout with cover panel -->
+  <div class="grid min-h-svh lg:grid-cols-2">
+    <div class="flex flex-col gap-4 bg-white p-6 md:p-10">
+      <AdminBrandLogo />
 
-      <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-col gap-6 p-6">
-          <div class="flex flex-col gap-2 text-center">
+      <div class="flex flex-1 items-center justify-center">
+        <div class="w-full max-w-xs space-y-6">
+          <div class="flex flex-col gap-2">
             <h1 class="text-2xl font-bold tracking-tight text-slate-900">เข้าสู่ระบบแอดมิน</h1>
-            <p class="text-sm text-slate-500">
+            <p class="text-sm text-balance text-slate-500">
               ใช้บัญชี Google ที่ได้รับอนุญาตเพื่อจัดการบทความและเนื้อหา
             </p>
           </div>
@@ -48,12 +49,14 @@ defineEmits<{
               </button>
             </p>
           </div>
+
+          <p class="text-center text-xs text-slate-400">
+            การเข้าสู่ระบบแสดงว่าคุณยอมรับนโยบายการใช้งานของ TheChoiceList
+          </p>
         </div>
       </div>
-
-      <p class="text-center text-xs text-slate-400">
-        การเข้าสู่ระบบแสดงว่าคุณยอมรับนโยบายการใช้งานของ TheChoiceList
-      </p>
     </div>
+
+    <AdminAuthCoverPanel variant="login" />
   </div>
 </template>

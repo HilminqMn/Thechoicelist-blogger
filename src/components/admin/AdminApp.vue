@@ -255,7 +255,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Auth: login-01 (centered) / signup-02 (split) -->
+    <!-- Auth: login-02 / signup-02 (split layout) -->
     <AdminLogin
       v-else-if="!isAuthenticated && authView === 'login'"
       :error="errorMessage"
@@ -265,7 +265,7 @@ onMounted(() => {
     <AdminSignup
       v-else-if="!isAuthenticated && authView === 'signup'"
       :error="errorMessage"
-      @signup="handleLogin"
+      @login="handleLogin"
       @show-login="authView = 'login'"
     />
 
