@@ -23,6 +23,7 @@ const posts = ref<Post[]>([]);
 const view = ref<'posts' | 'editor'>('posts');
 const editingPost = ref<Post | null>(null);
 const errorMessage = ref('');
+const authLoading = ref(false);
 const authView = ref<'login' | 'signup'>('login');
 
 const isAuthenticated = computed(() => !!session.value);
@@ -57,6 +58,24 @@ function decodeOAuthDescription(raw: string | null): string {
 
 function mapAuthErrorMessage(message: string): string {
   const lower = message.toLowerCase();
+  if (lower.includes('invalid login credentials') || lower.includes('invalid credentials')) {
+    return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ (ตรวจกล่องจดหมายหรือปิด Confirm email ใน Supabase สำหรับ dev)';
+  }
+  if (lower.includes('user already registered') || lower.includes('already been registered')) {
+    return 'อีเมลนี้ลงทะเบียนแล้ว กรุณาเข้าสู่ระบบแทน';
+  }
+  if (lower.includes('password should be at least') || lower.includes('weak password')) {
+    return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+  }
+  if (lower.includes('signup is disabled')) {
+    return 'การลงทะเบียนถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+  }
+  if (lower.includes('rate limit') || lower.includes('too many requests')) {
+    return 'มีการพยายามเข้าสู่ระบบมากเกินไป กรุณารอสักครู่แล้วลองใหม่';
+  }
   if (lower.includes('code verifier') || lower.includes('pkce')) {
     return 'เข้าสู่ระบบไม่สำเร็จ: ไม่พบ PKCE state (ลองกดเข้าสู่ระบบใหม่ในหน้าต่างเดิม ห้ามเปิดลิงก์จากอีเมล/แท็บอื่น)';
   }
@@ -205,20 +224,76 @@ async function init() {
   }
 }
 
-async function handleLogin() {
+async function handleGoogleLogin() {
   if (!supabase.value) {
     errorMessage.value = configError.value || 'ยังไม่ได้ตั้งค่า Supabase';
     return;
   }
 
   errorMessage.value = '';
-  const { error } = await supabase.value.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: getAdminRedirectUrl(),
-    },
-  });
-  if (error) errorMessage.value = mapAuthErrorMessage(error.message);
+  authLoading.value = true;
+  try {
+    const { error } = await supabase.value.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: getAdminRedirectUrl(),
+      },
+    });
+    if (error) errorMessage.value = mapAuthErrorMessage(error.message);
+  } finally {
+    authLoading.value = false;
+  }
+}
+
+async function handleEmailLogin({ email, password }: { email: string; password: string }) {
+  if (!supabase.value) {
+    errorMessage.value = configError.value || 'ยังไม่ได้ตั้งค่า Supabase';
+    return;
+  }
+
+  errorMessage.value = '';
+  authLoading.value = true;
+  try {
+    const { data, error } = await supabase.value.auth.signInWithPassword({ email, password });
+    if (error) {
+      errorMessage.value = mapAuthErrorMessage(error.message);
+      return;
+    }
+
+    session.value = data.session;
+    await initSession();
+  } finally {
+    authLoading.value = false;
+  }
+}
+
+async function handleEmailSignup({ email, password }: { email: string; password: string }) {
+  if (!supabase.value) {
+    errorMessage.value = configError.value || 'ยังไม่ได้ตั้งค่า Supabase';
+    return;
+  }
+
+  errorMessage.value = '';
+  authLoading.value = true;
+  try {
+    const { data, error } = await supabase.value.auth.signUp({ email, password });
+    if (error) {
+      errorMessage.value = mapAuthErrorMessage(error.message);
+      return;
+    }
+
+    if (!data.session) {
+      errorMessage.value =
+        'ลงทะเบียนสำเร็จ กรุณายืนยันอีเมลจากลิงก์ที่ส่งไปก่อนเข้าสู่ระบบ (หรือปิด Confirm email ใน Supabase สำหรับ dev)';
+      authView.value = 'login';
+      return;
+    }
+
+    session.value = data.session;
+    await initSession();
+  } finally {
+    authLoading.value = false;
+  }
 }
 
 async function handleLogout() {
@@ -332,13 +407,17 @@ onMounted(() => {
     <AdminLogin
       v-else-if="!isAuthenticated && authView === 'login'"
       :error="displayError"
-      @login="handleLogin"
+      :loading="authLoading"
+      @email-login="handleEmailLogin"
+      @google-login="handleGoogleLogin"
       @show-signup="authView = 'signup'"
     />
     <AdminSignup
       v-else-if="!isAuthenticated && authView === 'signup'"
       :error="displayError"
-      @login="handleLogin"
+      :loading="authLoading"
+      @email-signup="handleEmailSignup"
+      @google-login="handleGoogleLogin"
       @show-login="authView = 'login'"
     />
 

@@ -1,16 +1,28 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import AdminBrandLogo from './AdminBrandLogo.vue';
 import AdminAuthCoverPanel from './AdminAuthCoverPanel.vue';
+import AdminAuthField from './AdminAuthField.vue';
+import AdminAuthDivider from './AdminAuthDivider.vue';
 import GoogleAuthButton from './GoogleAuthButton.vue';
 
 defineProps<{
   error?: string;
+  loading?: boolean;
 }>();
 
-defineEmits<{
-  login: [];
+const emit = defineEmits<{
+  'email-login': [payload: { email: string; password: string }];
+  'google-login': [];
   'show-signup': [];
 }>();
+
+const email = ref('');
+const password = ref('');
+
+function handleSubmit() {
+  emit('email-login', { email: email.value.trim(), password: password.value });
+}
 </script>
 
 <template>
@@ -24,7 +36,7 @@ defineEmits<{
           <div class="flex flex-col gap-2">
             <h1 class="text-2xl font-bold tracking-tight text-slate-900">เข้าสู่ระบบแอดมิน</h1>
             <p class="text-sm text-balance text-slate-500">
-              ใช้บัญชี Google ที่ได้รับอนุญาตเพื่อจัดการบทความและเนื้อหา
+              ใช้อีเมลและรหัสผ่าน หรือบัญชี Google ที่ได้รับอนุญาตเพื่อจัดการบทความและเนื้อหา
             </p>
           </div>
 
@@ -35,17 +47,55 @@ defineEmits<{
             {{ error }}
           </div>
 
+          <form class="flex flex-col gap-4" @submit.prevent="handleSubmit">
+            <AdminAuthField
+              id="login-email"
+              v-model="email"
+              label="อีเมล"
+              type="email"
+              placeholder="you@example.com"
+              autocomplete="email"
+              required
+              :disabled="loading"
+            />
+            <AdminAuthField
+              id="login-password"
+              v-model="password"
+              label="รหัสผ่าน"
+              type="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+              :disabled="loading"
+            />
+
+            <button
+              type="submit"
+              :disabled="loading"
+              class="inline-flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}
+            </button>
+          </form>
+
+          <AdminAuthDivider />
+
           <div class="flex flex-col gap-4">
-            <GoogleAuthButton label="เข้าสู่ระบบด้วย Google" @click="$emit('login')" />
+            <GoogleAuthButton
+              label="เข้าสู่ระบบด้วย Google"
+              :disabled="loading"
+              @click="$emit('google-login')"
+            />
 
             <p class="text-center text-sm text-slate-500">
               ยังไม่มีบัญชี?
               <button
                 type="button"
                 class="font-medium text-slate-900 underline underline-offset-4 hover:text-slate-700"
+                :disabled="loading"
                 @click="$emit('show-signup')"
               >
-                ลงทะเบียนด้วย Google
+                ลงทะเบียน
               </button>
             </p>
           </div>

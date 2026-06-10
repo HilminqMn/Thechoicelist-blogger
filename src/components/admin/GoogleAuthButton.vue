@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   label?: string;
+  disabled?: boolean;
 }>();
 
 defineEmits<{
@@ -11,7 +12,8 @@ defineEmits<{
 <template>
   <button
     type="button"
-    class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+    :disabled="disabled"
+    class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     @click="$emit('click')"
   >
     <svg class="size-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">

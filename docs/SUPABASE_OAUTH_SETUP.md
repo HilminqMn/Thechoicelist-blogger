@@ -1,6 +1,6 @@
-# คู่มือตั้งค่า Supabase Google OAuth สำหรับ Admin
+# คู่มือตั้งค่า Supabase Auth สำหรับ Admin
 
-คู่มือนี้ครอบคลุมการตั้งค่า Google OAuth ผ่าน Supabase Auth สำหรับหน้า `/admin` ของ TheChoiceList — ทั้ง localhost และ Vercel production
+คู่มือนี้ครอบคลุมการตั้งค่า **อีเมล/รหัสผ่าน** และ **Google OAuth** ผ่าน Supabase Auth สำหรับหน้า `/admin` ของ TheChoiceList — ทั้ง localhost และ Vercel production
 
 ---
 
@@ -46,7 +46,30 @@ ON CONFLICT (email) DO NOTHING;
 
 ---
 
-## 4. เปิด Google Provider ใน Supabase
+## 4. เปิด Email Provider ใน Supabase
+
+หน้าแอดมินรองรับเข้าสู่ระบบด้วย **อีเมล + รหัสผ่าน** (นอกจาก Google OAuth)
+
+1. ไปที่ **Authentication → Providers → Email**
+2. เปิด **Enable Email provider**
+3. สำหรับ **development** แนะนำให้ปิด **Confirm email** ชั่วคราว เพื่อไม่ต้องรอยืนยันอีเมลก่อน login
+4. สำหรับ **production** เปิด Confirm email ได้ตามนโยบายความปลอดภัย — ผู้ใช้ต้องคลิกลิงก์ในอีเมลก่อนเข้าได้
+
+### ผู้ใช้ที่มีอยู่แล้วใน auth.users (เช่น สร้างผ่าน Google หรือ Dashboard)
+
+ถ้ามี user ใน Supabase Auth แล้ว (เช่น `hilming.mn@gmail.com`) แต่ยังไม่มีรหัสผ่านสำหรับ Email login ให้ตั้งรหัสผ่านด้วยวิธีใดวิธีหนึ่ง:
+
+| วิธี | ขั้นตอน |
+|------|---------|
+| Supabase Dashboard | **Authentication → Users** → เลือก user → **Send password recovery** หรือตั้งรหัสผ่านใหม่ |
+| Password reset flow | ใช้ลิงก์ reset จากอีเมล (ถ้าเปิด Email provider และ SMTP แล้ว) |
+| สร้าง user ใหม่ | ลงทะเบียนผ่านหน้า `/admin` ด้วยอีเมลที่อยู่ใน `admin_users` |
+
+> อีเมลต้องอยู่ในตาราง `admin_users` ด้วย — การมีบัญชีใน `auth.users` อย่างเดียวยังเข้าแดชบอร์ดไม่ได้
+
+---
+
+## 5. เปิด Google Provider ใน Supabase
 
 1. **Authentication → Providers → Google**
 2. เปิด **Enable Sign in with Google**
@@ -55,7 +78,7 @@ ON CONFLICT (email) DO NOTHING;
 
 ---
 
-## 5. ตั้งค่า Google Cloud Console
+## 6. ตั้งค่า Google Cloud Console
 
 1. ไปที่ [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Credentials**
 2. สร้าง **OAuth 2.0 Client ID** (Application type: **Web application**)
@@ -92,7 +115,7 @@ https://pjjtohcbuhdartslzzal.supabase.co/auth/v1/callback
 
 ---
 
-## 6. ตั้งค่า URL ใน Supabase Dashboard
+## 7. ตั้งค่า URL ใน Supabase Dashboard
 
 ไปที่ **Authentication → URL Configuration**
 
@@ -127,7 +150,7 @@ https://thechoicelist-blogger.vercel.app/**
 
 ---
 
-## 7. Environment Variables
+## 8. Environment Variables
 
 ### Local (`.env`)
 
@@ -150,13 +173,21 @@ cp .env.example .env
 
 ---
 
-## 8. ทดสอบ OAuth Flow
+## 9. ทดสอบ Auth Flow
+
+### อีเมล + รหัสผ่าน
 
 1. รัน `npm run dev` แล้วเปิด `http://localhost:4321/admin`
-2. กด **เข้าสู่ระบบด้วย Google**
-3. หลัง authorize จะ redirect กลับมาที่ `/admin?code=...`
-4. แอปจะแลก `code` เป็น session (PKCE) แล้วเรียก `is_admin()` ตรวจสอบสิทธิ์
-5. ถ้าอีเมลไม่อยู่ใน `admin_users` จะเห็นข้อความภาษาไทยและถูก sign out อัตโนมัติ
+2. กรอกอีเมลที่อยู่ใน `admin_users` และรหัสผ่าน แล้วกด **เข้าสู่ระบบ**
+3. แอปเรียก `signInWithPassword` แล้วตรวจ `is_admin()` — ผ่านจึงเข้าแดชบอร์ด
+4. ทดสอบลงทะเบียน: ไปหน้า **ลงทะเบียน** → กรอกอีเมล/รหัสผ่าน → ถ้า Confirm email ปิดอยู่จะ login ทันที
+
+### Google OAuth
+
+1. กด **เข้าสู่ระบบด้วย Google**
+2. หลัง authorize จะ redirect กลับมาที่ `/admin?code=...`
+3. แอปจะแลก `code` เป็น session (PKCE) แล้วเรียก `is_admin()` ตรวจสอบสิทธิ์
+4. ถ้าอีเมลไม่อยู่ใน `admin_users` จะเห็นข้อความภาษาไทยและถูก sign out อัตโนมัติ
 
 ---
 
@@ -227,6 +258,9 @@ SELECT is_admin();
 | ข้อความ "อีเมลนี้ยังไม่ได้รับสิทธิ์แอดมิน" | อีเมลไม่อยู่ใน `admin_users` | `INSERT INTO admin_users (email) VALUES ('hilming.mn@gmail.com')` |
 | หน้า login แสดงข้อความ env หาย | Vercel ไม่มี env หรือยังไม่ redeploy | ตั้ง `PUBLIC_SUPABASE_*` แล้ว Redeploy |
 | ใช้ได้ local แต่ production ไม่ได้ | Production URL ไม่ได้เพิ่มใน Supabase/Google | ทำ checklist ด้านบนครบทุกข้อ |
+| อีเมล/รหัสผ่านไม่ถูกต้อง | user ไม่มีรหัสผ่าน (สร้างผ่าน Google) | ตั้งรหัสผ่านใน Dashboard หรือใช้ password reset (ดูขั้นตอนที่ 4) |
+| กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ | เปิด Confirm email ใน Supabase | คลิกลิงก์ในอีเมล หรือปิด Confirm email สำหรับ dev |
+| Email provider ไม่ทำงาน | ยังไม่เปิด Email ใน Providers | เปิดที่ Authentication → Providers → Email |
 
 ### ลำดับ OAuth ที่ถูกต้อง
 
