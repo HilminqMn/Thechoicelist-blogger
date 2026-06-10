@@ -23,6 +23,18 @@
 2. `supabase/migrations/002_admin_rpc_grant.sql` — อนุญาตให้ client เรียก `is_admin()` ตรวจสอบสิทธิ์แอดมิน
 3. `supabase/migrations/003_seed_admin_user.sql` — เพิ่มอีเมลแอดมินเริ่มต้น (หรือรัน SQL ด้านล่างเอง)
 4. `supabase/migrations/004_is_admin_email_fallback.sql` — (แนะนำ) อ่านอีเมลจาก `user_metadata` ถ้า JWT ไม่มี claim `email`
+5. `supabase/migrations/005_seed_sample_posts.sql` — (แนะนำ) เพิ่มหมวดหมู่ภาษาไทยและบทความตัวอย่าง 10 รายการ (รันใน **SQL Editor** — ปลอดภัยเมื่อรันซ้ำ)
+
+---
+
+## 2.1 บทความตัวอย่าง (Sample Posts)
+
+หากต้องการข้อมูลจริงบนหน้าเว็บแทน demo mode ให้เปิด **Supabase Dashboard → SQL Editor** แล้ววางเนื้อหาจากไฟล์ `supabase/migrations/005_seed_sample_posts.sql` ทั้งไฟล์ จากนั้นกด **Run**
+
+สคริปต์จะ:
+- อัปเดตชื่อหมวดหมู่เป็นภาษาไทย (แกดเจ็ต, บ้านและการอยู่อาศัย, แฟชั่น, อาหารและเครื่องดื่ม)
+- เพิ่มบทความ `published` 10 รายการ พร้อมเนื้อหา markdown, รูป Unsplash และลิงก์ affiliate
+- ใช้ `ON CONFLICT` — รันซ้ำได้โดยไม่สร้างข้อมูลซ้ำ
 
 ---
 

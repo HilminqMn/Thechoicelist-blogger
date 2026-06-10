@@ -35,10 +35,11 @@ npm run dev
 
 1. สร้างโปรเจกต์ที่ [supabase.com](https://supabase.com)
 2. รัน SQL จาก `supabase/migrations/001_schema.sql` และ `002_admin_rpc_grant.sql`
-3. เปิด **Authentication → Providers → Google** + ตั้งค่า Google Cloud Console
-4. ตั้ง **Site URL** และ **Redirect URLs** (localhost + Vercel `/admin`)
-5. เพิ่มอีเมลแอดมิน: `INSERT INTO admin_users (email) VALUES ('your@gmail.com');`
-6. Deploy Edge Function (optional): `supabase functions deploy daily-content`
+3. (แนะนำ) รัน `supabase/migrations/005_seed_sample_posts.sql` ใน **Supabase SQL Editor** เพื่อเพิ่มหมวดหมู่และบทความตัวอย่าง 10 รายการ
+4. เปิด **Authentication → Providers → Google** + ตั้งค่า Google Cloud Console
+5. ตั้ง **Site URL** และ **Redirect URLs** (localhost + Vercel `/admin`)
+6. เพิ่มอีเมลแอดมิน: `INSERT INTO admin_users (email) VALUES ('your@gmail.com');`
+7. Deploy Edge Function (optional): `supabase functions deploy daily-content`
 
 ## Pages
 
