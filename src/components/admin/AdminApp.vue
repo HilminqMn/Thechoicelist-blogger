@@ -6,11 +6,19 @@ import {
   getAdminRedirectUrl,
   getSupabaseConfigError,
 } from '../../lib/supabase-browser';
+import { useAdminToast } from '../../composables/useAdminToast';
+import { useAdminConfirm } from '../../composables/useAdminConfirm';
 import AdminLogin from './AdminLogin.vue';
 import AdminSignup from './AdminSignup.vue';
 import AdminDashboardLayout from './AdminDashboardLayout.vue';
+import AdminToast from './AdminToast.vue';
+import AdminConfirmDialog from './AdminConfirmDialog.vue';
 import PostsTable from './PostsTable.vue';
+import CategoriesPanel from './CategoriesPanel.vue';
 import type { Category, Post, PostFormData } from '../../lib/types';
+
+const toast = useAdminToast();
+const { confirm } = useAdminConfirm();
 
 interface DbHealth {
   ok: boolean;
@@ -32,10 +40,15 @@ const session = ref<{ user: { email?: string } } | null>(null);
 const loading = ref(true);
 const categories = ref<Category[]>([]);
 const posts = ref<Post[]>([]);
-const view = ref<'posts' | 'editor'>('posts');
+type AdminView = 'posts' | 'editor' | 'categories';
+
+const view = ref<AdminView>('posts');
 const editingPost = ref<Post | null>(null);
 const errorMessage = ref('');
 const dataLoadError = ref('');
+const dataLoading = ref(false);
+const saveLoading = ref(false);
+const editorDirty = ref(false);
 const authLoading = ref(false);
 const authView = ref<'login' | 'signup'>('login');
 const dbHealth = ref<DbHealth | null>(null);
@@ -48,12 +61,18 @@ const pageTitle = computed(() => {
   if (view.value === 'editor') {
     return editingPost.value ? 'แก้ไขบทความ' : 'สร้างบทความใหม่';
   }
+  if (view.value === 'categories') {
+    return 'หมวดหมู่';
+  }
   return 'แดชบอร์ด';
 });
 
 const pageSubtitle = computed(() => {
   if (view.value === 'editor') {
     return 'กรอกข้อมูลบทความและบันทึก';
+  }
+  if (view.value === 'categories') {
+    return `หมวดหมู่ทั้งหมด ${categories.value.length} รายการ`;
   }
   return `จัดการบทความทั้งหมด ${posts.value.length} รายการ`;
 });
@@ -237,20 +256,25 @@ async function loadData() {
     throw new Error('ยังไม่มี session — ไม่สามารถโหลดบทความได้');
   }
 
-  const [categoriesRes, postsRes] = await Promise.all([
-    supabase.value.from('categories').select('*').order('name'),
-    supabase.value.from('posts').select('*, categories(*)').order('updated_at', { ascending: false }),
-  ]);
+  dataLoading.value = true;
+  try {
+    const [categoriesRes, postsRes] = await Promise.all([
+      supabase.value.from('categories').select('*').order('name'),
+      supabase.value.from('posts').select('*, categories(*)').order('updated_at', { ascending: false }),
+    ]);
 
-  if (categoriesRes.error) {
-    throw new Error(`โหลดหมวดหมู่ไม่สำเร็จ: ${categoriesRes.error.message}`);
-  }
-  if (postsRes.error) {
-    throw new Error(`โหลดบทความไม่สำเร็จ: ${postsRes.error.message}`);
-  }
+    if (categoriesRes.error) {
+      throw new Error(`โหลดหมวดหมู่ไม่สำเร็จ: ${categoriesRes.error.message}`);
+    }
+    if (postsRes.error) {
+      throw new Error(`โหลดบทความไม่สำเร็จ: ${postsRes.error.message}`);
+    }
 
-  categories.value = categoriesRes.data ?? [];
-  posts.value = (postsRes.data ?? []) as Post[];
+    categories.value = categoriesRes.data ?? [];
+    posts.value = (postsRes.data ?? []) as Post[];
+  } finally {
+    dataLoading.value = false;
+  }
 }
 
 async function bootstrapDashboard(): Promise<void> {
@@ -395,33 +419,60 @@ async function handleLogout() {
   dataLoadError.value = '';
 }
 
-function openCreate() {
+async function confirmLeaveEditor(): Promise<boolean> {
+  if (!editorDirty.value) return true;
+
+  return confirm({
+    title: 'มีการแก้ไขที่ยังไม่ได้บันทึก',
+    message: 'คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?',
+    confirmLabel: 'ออกโดยไม่บันทึก',
+    cancelLabel: 'อยู่ต่อ',
+    variant: 'danger',
+  });
+}
+
+async function openCreate() {
+  if (view.value === 'editor' && !(await confirmLeaveEditor())) return;
   editingPost.value = null;
+  editorDirty.value = false;
   view.value = 'editor';
 }
 
-function openEdit(post: Post) {
+async function openEdit(post: Post) {
+  if (view.value === 'editor' && !(await confirmLeaveEditor())) return;
   editingPost.value = post;
+  editorDirty.value = false;
   view.value = 'editor';
 }
 
-function backToTable() {
+async function backToTable() {
+  if (!(await confirmLeaveEditor())) return;
   view.value = 'posts';
   editingPost.value = null;
+  editorDirty.value = false;
 }
 
-function handleNavigate(navView: 'posts' | 'editor') {
+async function handleNavigate(navView: AdminView) {
   if (navView === 'posts') {
-    backToTable();
-  } else {
-    openCreate();
+    await backToTable();
+    return;
   }
+  if (navView === 'editor') {
+    await openCreate();
+    return;
+  }
+  if (view.value === 'editor' && !(await confirmLeaveEditor())) return;
+  view.value = 'categories';
+  editingPost.value = null;
+  editorDirty.value = false;
 }
 
 async function handleSave(form: PostFormData) {
-  if (!supabase.value) return;
+  if (!supabase.value || saveLoading.value) return;
 
   errorMessage.value = '';
+  saveLoading.value = true;
+
   const payload = {
     title: form.title,
     slug: form.slug,
@@ -434,29 +485,51 @@ async function handleSave(form: PostFormData) {
     updated_at: new Date().toISOString(),
   };
 
-  const result = editingPost.value
-    ? await supabase.value.from('posts').update(payload).eq('id', editingPost.value.id)
-    : await supabase.value.from('posts').insert(payload);
+  try {
+    const result = editingPost.value
+      ? await supabase.value.from('posts').update(payload).eq('id', editingPost.value.id)
+      : await supabase.value.from('posts').insert(payload);
 
-  if (result.error) {
-    errorMessage.value = result.error.message;
-    return;
+    if (result.error) {
+      toast.error(`บันทึกไม่สำเร็จ: ${result.error.message}`);
+      return;
+    }
+
+    const statusLabel = form.status === 'published' ? 'เผยแพร่แล้ว' : 'บันทึกฉบับร่างแล้ว';
+    toast.success(`${statusLabel} — "${form.title}"`);
+
+    editorDirty.value = false;
+    await loadData();
+    view.value = 'posts';
+    editingPost.value = null;
+  } finally {
+    saveLoading.value = false;
   }
-
-  await loadData();
-  backToTable();
 }
 
 async function handleDelete(postId: string) {
   if (!supabase.value) return;
-  if (!confirm('ยืนยันการลบบทความนี้?')) return;
+
+  const post = posts.value.find((p) => p.id === postId);
+  const ok = await confirm({
+    title: 'ลบบทความ',
+    message: post
+      ? `ยืนยันการลบ "${post.title}"? การกระทำนี้ไม่สามารถย้อนกลับได้`
+      : 'ยืนยันการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้',
+    confirmLabel: 'ลบ',
+    cancelLabel: 'ยกเลิก',
+    variant: 'danger',
+  });
+
+  if (!ok) return;
 
   const { error } = await supabase.value.from('posts').delete().eq('id', postId);
   if (error) {
-    errorMessage.value = error.message;
+    toast.error(`ลบไม่สำเร็จ: ${error.message}`);
     return;
   }
 
+  toast.success('ลบบทความเรียบร้อยแล้ว');
   await loadData();
 }
 
@@ -577,9 +650,16 @@ onMounted(() => {
       <PostsTable
         v-if="view === 'posts'"
         :posts="posts"
+        :loading="dataLoading"
         @create="openCreate"
         @edit="openEdit"
         @delete="handleDelete"
+      />
+
+      <CategoriesPanel
+        v-if="view === 'categories'"
+        :categories="categories"
+        :loading="dataLoading"
       />
 
       <PostEditor
@@ -588,7 +668,11 @@ onMounted(() => {
         :categories="categories"
         @save="handleSave"
         @cancel="backToTable"
+        @unsaved-change="editorDirty = $event"
       />
     </AdminDashboardLayout>
+
+    <AdminToast />
+    <AdminConfirmDialog />
   </div>
 </template>

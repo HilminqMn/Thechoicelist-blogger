@@ -1,11 +1,11 @@
 <script setup lang="ts">
 defineProps<{
-  currentView: 'posts' | 'editor';
+  currentView: 'posts' | 'editor' | 'categories';
   open: boolean;
 }>();
 
 defineEmits<{
-  navigate: [view: 'posts' | 'editor'];
+  navigate: [view: 'posts' | 'editor' | 'categories'];
   close: [];
 }>();
 
@@ -22,7 +22,20 @@ const navItems = [
     description: 'เขียนบทความ',
     icon: 'plus',
   },
+  {
+    id: 'categories' as const,
+    label: 'หมวดหมู่',
+    description: 'ดูหมวดหมู่',
+    icon: 'folder',
+  },
 ];
+
+function isActive(itemId: string, currentView: string): boolean {
+  if (itemId === 'posts') return currentView === 'posts';
+  if (itemId === 'editor') return currentView === 'editor';
+  if (itemId === 'categories') return currentView === 'categories';
+  return false;
+}
 </script>
 
 <template>
@@ -62,8 +75,7 @@ const navItems = [
         type="button"
         class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition"
         :class="
-          (item.id === 'posts' && currentView === 'posts') ||
-          (item.id === 'editor' && currentView === 'editor')
+          isActive(item.id, currentView)
             ? 'bg-slate-800 text-white'
             : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
         "
@@ -72,8 +84,7 @@ const navItems = [
         <span
           class="flex size-8 shrink-0 items-center justify-center rounded-md"
           :class="
-            (item.id === 'posts' && currentView === 'posts') ||
-            (item.id === 'editor' && currentView === 'editor')
+            isActive(item.id, currentView)
               ? 'bg-slate-700 text-white'
               : 'bg-slate-900 text-slate-400'
           "
@@ -84,32 +95,17 @@ const navItems = [
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
           </svg>
-          <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg v-else-if="item.icon === 'plus'" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
           </svg>
         </span>
         <span>
           <span class="block font-medium">{{ item.label }}</span>
           <span class="block text-[11px] text-slate-500">{{ item.description }}</span>
-        </span>
-      </button>
-
-      <!-- Future: Categories -->
-      <button
-        type="button"
-        disabled
-        class="flex w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-600"
-        title="เร็วๆ นี้"
-      >
-        <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-slate-600">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-        </span>
-        <span>
-          <span class="block font-medium">หมวดหมู่</span>
-          <span class="block text-[11px] text-slate-600">เร็วๆ นี้</span>
         </span>
       </button>
     </nav>

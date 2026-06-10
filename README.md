@@ -33,6 +33,7 @@ npm run dev
 
 - **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** — ตั้งค่า DB, migrations, env vars, health check
 - **[docs/SUPABASE_OAUTH_SETUP.md](docs/SUPABASE_OAUTH_SETUP.md)** — Google OAuth สำหรับ Admin
+- **[docs/AI_CRON_SETUP.md](docs/AI_CRON_SETUP.md)** — AI สร้างบทความอัตโนมัติ + Cron
 
 สรุปสั้นๆ:
 
@@ -42,7 +43,7 @@ npm run dev
 4. เปิด **Authentication → Providers → Google** + ตั้งค่า Google Cloud Console
 5. ตั้ง **Site URL** และ **Redirect URLs** (localhost + Vercel `/admin`)
 6. เพิ่มอีเมลแอดมิน: `INSERT INTO admin_users (email) VALUES ('your@gmail.com');`
-7. Deploy Edge Function (optional): `supabase functions deploy daily-content`
+7. Deploy Edge Function + Cron (optional): ดู [docs/AI_CRON_SETUP.md](docs/AI_CRON_SETUP.md)
 
 ## Pages
 

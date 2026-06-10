@@ -1,16 +1,13 @@
-# Supabase Cron example — schedule daily-content Edge Function
-# Configure in Supabase Dashboard > Database > Extensions (enable pg_cron)
-# Or use Supabase Dashboard > Edge Functions > Schedules
-
-# Example SQL to invoke via pg_net (adjust URL and anon key):
+# Supabase Cron — schedule daily-content Edge Function
+# See docs/AI_CRON_SETUP.md for full setup guide
 #
-# SELECT cron.schedule(
-#   'daily-content-job',
-#   '0 2 * * *',
-#   $$
-#   SELECT net.http_post(
-#     url := 'https://YOUR_PROJECT.supabase.co/functions/v1/daily-content',
-#     headers := '{"Authorization": "Bearer YOUR_ANON_KEY"}'::jsonb
-#   );
-#   $$
-# );
+# Option A (recommended): Dashboard → Edge Functions → daily-content → Schedules
+#   Cron: 0 2 * * *  (02:00 UTC = 09:00 Bangkok)
+#
+# Option B: pg_cron + pg_net (run 006_cron_schedule.sql in SQL Editor)
+#   Prerequisites: enable pg_cron and pg_net extensions
+#
+# Manual test:
+#   curl -X POST 'https://pjjtohcbuhdartslzzal.supabase.co/functions/v1/daily-content' \
+#     -H 'Authorization: Bearer YOUR_SERVICE_ROLE_KEY' \
+#     -H 'Content-Type: application/json'

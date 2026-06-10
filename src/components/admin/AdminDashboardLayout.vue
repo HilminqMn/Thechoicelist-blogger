@@ -4,20 +4,20 @@ import AdminSidebar from './AdminSidebar.vue';
 import AdminHeader from './AdminHeader.vue';
 
 defineProps<{
-  currentView: 'posts' | 'editor';
+  currentView: 'posts' | 'editor' | 'categories';
   userEmail?: string;
   pageTitle: string;
   pageSubtitle?: string;
 }>();
 
 const emit = defineEmits<{
-  navigate: [view: 'posts' | 'editor'];
+  navigate: [view: 'posts' | 'editor' | 'categories'];
   logout: [];
 }>();
 
 const sidebarOpen = ref(false);
 
-function handleNavigate(view: 'posts' | 'editor') {
+function handleNavigate(view: 'posts' | 'editor' | 'categories') {
   emit('navigate', view);
   sidebarOpen.value = false;
 }
