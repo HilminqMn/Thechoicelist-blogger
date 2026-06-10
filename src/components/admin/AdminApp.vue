@@ -35,9 +35,12 @@ const posts = ref<Post[]>([]);
 const view = ref<'posts' | 'editor'>('posts');
 const editingPost = ref<Post | null>(null);
 const errorMessage = ref('');
+const dataLoadError = ref('');
 const authLoading = ref(false);
 const authView = ref<'login' | 'signup'>('login');
 const dbHealth = ref<DbHealth | null>(null);
+
+let bootstrapInFlight: Promise<void> | null = null;
 
 const isAuthenticated = computed(() => !!session.value);
 
@@ -58,7 +61,7 @@ const pageSubtitle = computed(() => {
 const NON_ADMIN_ERROR =
   'อีเมลนี้ยังไม่ได้รับสิทธิ์แอดมิน กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มอีเมลในรายการ admin_users';
 
-const displayError = computed(() => configError.value || errorMessage.value);
+const displayError = computed(() => configError.value || errorMessage.value || dataLoadError.value);
 
 function decodeOAuthDescription(raw: string | null): string {
   if (!raw) return '';
@@ -180,18 +183,30 @@ async function loadSession() {
 async function verifyAdminAccess(): Promise<boolean> {
   if (!supabase.value) return false;
 
+  const { data: { session: authSession } } = await supabase.value.auth.getSession();
+  if (!authSession) {
+    throw new Error('ยังไม่มี session บน Supabase client — ลองรีเฟรชหน้าหรือเข้าสู่ระบบใหม่');
+  }
+
   const { data, error } = await supabase.value.rpc('is_admin');
 
   if (error) {
-    await supabase.value.auth.signOut();
-    session.value = null;
-    errorMessage.value =
-      'ไม่สามารถตรวจสอบสิทธิ์แอดมินได้ กรุณารัน migration 002_admin_rpc_grant.sql ใน Supabase';
-    return false;
+    const missingRpc =
+      error.message.includes('Could not find the function') ||
+      error.message.includes('function public.is_admin') ||
+      error.code === '42883';
+    if (missingRpc) {
+      await supabase.value.auth.signOut();
+      session.value = null;
+      errorMessage.value =
+        'ไม่สามารถตรวจสอบสิทธิ์แอดมินได้ กรุณารัน migration 002_admin_rpc_grant.sql ใน Supabase';
+      return false;
+    }
+    throw new Error(`ไม่สามารถตรวจสอบสิทธิ์แอดมินได้: ${error.message}`);
   }
 
   if (!data) {
-    const email = session.value?.user?.email;
+    const email = session.value?.user?.email ?? authSession.user.email;
     await supabase.value.auth.signOut();
     session.value = null;
     errorMessage.value = email
@@ -213,27 +228,54 @@ async function loadDbHealth() {
 }
 
 async function loadData() {
-  if (!supabase.value) return;
+  if (!supabase.value) {
+    throw new Error('Supabase client ไม่พร้อม');
+  }
+
+  const { data: { session: authSession } } = await supabase.value.auth.getSession();
+  if (!authSession) {
+    throw new Error('ยังไม่มี session — ไม่สามารถโหลดบทความได้');
+  }
 
   const [categoriesRes, postsRes] = await Promise.all([
     supabase.value.from('categories').select('*').order('name'),
     supabase.value.from('posts').select('*, categories(*)').order('updated_at', { ascending: false }),
   ]);
 
-  if (categoriesRes.error) throw categoriesRes.error;
-  if (postsRes.error) throw postsRes.error;
+  if (categoriesRes.error) {
+    throw new Error(`โหลดหมวดหมู่ไม่สำเร็จ: ${categoriesRes.error.message}`);
+  }
+  if (postsRes.error) {
+    throw new Error(`โหลดบทความไม่สำเร็จ: ${postsRes.error.message}`);
+  }
 
   categories.value = categoriesRes.data ?? [];
   posts.value = (postsRes.data ?? []) as Post[];
 }
 
-async function initSession() {
-  if (session.value) {
-    const isAdmin = await verifyAdminAccess();
-    if (isAdmin) {
-      await loadData();
-    }
+async function bootstrapDashboard(): Promise<void> {
+  if (!supabase.value || !session.value) return;
+
+  if (bootstrapInFlight) {
+    await bootstrapInFlight;
+    return;
   }
+
+  bootstrapInFlight = (async () => {
+    dataLoadError.value = '';
+    try {
+      const isAdmin = await verifyAdminAccess();
+      if (!isAdmin) return;
+      await loadData();
+    } catch (err) {
+      dataLoadError.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
+      console.error('[Admin] bootstrapDashboard failed:', err);
+    }
+  })().finally(() => {
+    bootstrapInFlight = null;
+  });
+
+  await bootstrapInFlight;
 }
 
 async function init() {
@@ -255,14 +297,15 @@ async function init() {
             `${getAdminRedirectUrl()} และ redeploy Vercel หลังตั้ง env vars`;
         }
 
-        await initSession();
+        if (session.value && posts.value.length === 0 && !dataLoadError.value) {
+          await bootstrapDashboard();
+        }
       })(),
       AUTH_INIT_TIMEOUT_MS,
       'โหลดหน้าแอดมินใช้เวลานานเกินไป กรุณารีเฟรชหน้าหรือลองเข้าสู่ระบบใหม่',
     );
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
-    session.value = null;
+    errorMessage.value = err instanceof Error ? err.message : 'โหลดหน้าแอดมินไม่สำเร็จ';
   } finally {
     loading.value = false;
   }
@@ -305,7 +348,7 @@ async function handleEmailLogin({ email, password }: { email: string; password: 
     }
 
     session.value = data.session;
-    await initSession();
+    await bootstrapDashboard();
   } finally {
     authLoading.value = false;
   }
@@ -334,7 +377,7 @@ async function handleEmailSignup({ email, password }: { email: string; password:
     }
 
     session.value = data.session;
-    await initSession();
+    await bootstrapDashboard();
   } finally {
     authLoading.value = false;
   }
@@ -346,8 +389,10 @@ async function handleLogout() {
   await supabase.value.auth.signOut();
   session.value = null;
   posts.value = [];
+  categories.value = [];
   view.value = 'posts';
   errorMessage.value = '';
+  dataLoadError.value = '';
 }
 
 function openCreate() {
@@ -426,18 +471,16 @@ onMounted(() => {
   }
 
   supabase.value.auth.onAuthStateChange(async (event, newSession) => {
-    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       session.value = newSession;
       if (newSession) {
-        try {
-          await initSession();
-        } catch (err) {
-          errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
-        }
+        await bootstrapDashboard();
       }
     } else if (event === 'SIGNED_OUT') {
       session.value = null;
       posts.value = [];
+      categories.value = [];
+      dataLoadError.value = '';
     }
   });
 
@@ -484,7 +527,15 @@ onMounted(() => {
       @logout="handleLogout"
     >
       <div v-if="displayError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {{ displayError }}
+        <p>{{ displayError }}</p>
+        <button
+          v-if="dataLoadError"
+          type="button"
+          class="mt-2 text-xs font-medium underline hover:no-underline"
+          @click="bootstrapDashboard()"
+        >
+          ลองโหลดข้อมูลอีกครั้ง
+        </button>
       </div>
 
       <div
