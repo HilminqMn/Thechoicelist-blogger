@@ -95,12 +95,13 @@ CREATE POLICY "Admin read own admin list"
     ON admin_users FOR SELECT
     USING (is_admin());
 
--- Seed categories
+-- Seed categories (Thai display names, English slugs)
 INSERT INTO categories (name, slug) VALUES
-    ('Gadgets', 'gadgets'),
-    ('Home & Living', 'home-living'),
-    ('Fashion', 'fashion')
-ON CONFLICT (slug) DO NOTHING;
+    ('แกดเจ็ต', 'gadgets'),
+    ('บ้านและการอยู่อาศัย', 'home-living'),
+    ('แฟชั่น', 'fashion'),
+    ('อาหารและเครื่องดื่ม', 'food-drink')
+ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name;
 
 -- Add your admin email after enabling Google OAuth:
 -- INSERT INTO admin_users (email) VALUES ('your@gmail.com');

@@ -12,6 +12,15 @@ import AdminDashboardLayout from './AdminDashboardLayout.vue';
 import PostsTable from './PostsTable.vue';
 import type { Category, Post, PostFormData } from '../../lib/types';
 
+interface DbHealth {
+  ok: boolean;
+  mode: string;
+  message: string;
+  categoriesCount?: number;
+  publishedPostsCount?: number;
+  error?: string;
+}
+
 const PostEditor = defineAsyncComponent(() => import('./PostEditor.vue'));
 
 const AUTH_INIT_TIMEOUT_MS = 10_000;
@@ -28,6 +37,7 @@ const editingPost = ref<Post | null>(null);
 const errorMessage = ref('');
 const authLoading = ref(false);
 const authView = ref<'login' | 'signup'>('login');
+const dbHealth = ref<DbHealth | null>(null);
 
 const isAuthenticated = computed(() => !!session.value);
 
@@ -191,6 +201,15 @@ async function verifyAdminAccess(): Promise<boolean> {
   }
 
   return true;
+}
+
+async function loadDbHealth() {
+  try {
+    const res = await fetch('/api/health');
+    dbHealth.value = (await res.json()) as DbHealth;
+  } catch {
+    dbHealth.value = { ok: false, mode: 'unknown', message: 'ตรวจสอบ DB ไม่ได้' };
+  }
 }
 
 async function loadData() {
@@ -399,6 +418,8 @@ async function handleDelete(postId: string) {
 onMounted(() => {
   supabase.value = createBrowserSupabaseClient({ detectSessionInUrl: false });
 
+  void loadDbHealth();
+
   if (!supabase.value) {
     loading.value = false;
     return;
@@ -464,6 +485,22 @@ onMounted(() => {
     >
       <div v-if="displayError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {{ displayError }}
+      </div>
+
+      <div
+        v-if="dbHealth"
+        class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border px-4 py-2.5 text-sm"
+        :class="dbHealth.ok && dbHealth.mode === 'supabase'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : dbHealth.mode === 'demo'
+            ? 'border-amber-200 bg-amber-50 text-amber-800'
+            : 'border-red-200 bg-red-50 text-red-700'"
+      >
+        <span class="font-medium">{{ dbHealth.message }}</span>
+        <span v-if="dbHealth.mode === 'supabase' && dbHealth.publishedPostsCount != null" class="text-xs opacity-80">
+          ({{ dbHealth.publishedPostsCount }} บทความ · {{ dbHealth.categoriesCount }} หมวด)
+        </span>
+        <span v-if="dbHealth.error" class="text-xs">{{ dbHealth.error }}</span>
       </div>
 
       <!-- Stats cards (dashboard-01 pattern) -->

@@ -1,0 +1,17 @@
+---
+import { getDbMode, isDemoForced } from '../lib/db-config';
+
+const mode = getDbMode();
+const showBanner = import.meta.env.DEV || isDemoForced();
+---
+
+{
+  showBanner && mode === 'demo' && (
+    <div
+      class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900"
+      role="status"
+    >
+      โหมด Demo — แสดงข้อมูลตัวอย่างในเครื่อง (ตั้งค่า Supabase env และ PUBLIC_USE_DEMO=false เพื่อใช้ DB จริง)
+    </div>
+  )
+}

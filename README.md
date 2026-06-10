@@ -29,7 +29,10 @@ npm run dev
 
 ## Supabase Setup
 
-ดูคู่มือฉบับเต็ม: **[docs/SUPABASE_OAUTH_SETUP.md](docs/SUPABASE_OAUTH_SETUP.md)**
+ดูคู่มือฉบับเต็ม:
+
+- **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** — ตั้งค่า DB, migrations, env vars, health check
+- **[docs/SUPABASE_OAUTH_SETUP.md](docs/SUPABASE_OAUTH_SETUP.md)** — Google OAuth สำหรับ Admin
 
 สรุปสั้นๆ:
 
@@ -76,6 +79,7 @@ npm run preview
 |----------|----------|-------------|
 | `PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
 | `PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key |
+| `PUBLIC_USE_DEMO` | Optional | `true` = บังคับ demo data (default: ใช้ DB เมื่อมี env) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Optional | สำหรับ Edge Functions / server-only |
 
 ### ย้ายไปบัญชี Vercel ใหม่ (ทำบน Dashboard — แนะนำ)
@@ -125,4 +129,5 @@ npx vercel --prod
 
 ## Demo Mode
 
-หากยังไม่ได้ตั้งค่า Supabase ระบบจะแสดง **demo posts** อัตโนมัติบนหน้าบ้าน
+หากยังไม่ได้ตั้งค่า Supabase env ระบบจะแสดง **demo posts** อัตโนมัติบนหน้าบ้าน  
+ตั้ง `PUBLIC_USE_DEMO=false` (หรือลบออก) เมื่อต้องการใช้ DB จริง — ตรวจสถานะที่ `/api/health`

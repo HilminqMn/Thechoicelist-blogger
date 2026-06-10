@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import DbModeBanner from '../components/DbModeBanner.astro';
 
 interface Props {
   title?: string;
@@ -19,6 +20,7 @@ const { title = 'TheChoiceList', description = 'รายการคัดส�
     <title>{title}</title>
   </head>
   <body>
+    <DbModeBanner />
     <slot />
   </body>
 </html>

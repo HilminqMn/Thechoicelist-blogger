@@ -1,8 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { logDbMode, shouldUseDemo, throwIfDbError } from './db-config';
 import type { Category, Post } from './types';
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+export { DbQueryError, getDbMode, isSupabaseConfigured, shouldUseDemo } from './db-config';
 
 export function createSupabaseClient(): SupabaseClient | null {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -24,9 +27,12 @@ export function createBrowserSupabaseClient(): SupabaseClient {
 }
 
 export async function getPublishedPosts(limit = 12): Promise<Post[]> {
-  const supabase = createSupabaseClient();
-  if (!supabase) return getDemoPosts().filter((p) => p.status === 'published').slice(0, limit);
+  if (shouldUseDemo()) {
+    logDbMode('getPublishedPosts');
+    return getDemoPosts().filter((p) => p.status === 'published').slice(0, limit);
+  }
 
+  const supabase = createSupabaseClient()!;
   const { data, error } = await supabase
     .from('posts')
     .select('*, categories(*)')
@@ -34,18 +40,17 @@ export async function getPublishedPosts(limit = 12): Promise<Post[]> {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (error) {
-    console.error('Failed to fetch posts:', error.message);
-    return getDemoPosts().filter((p) => p.status === 'published').slice(0, limit);
-  }
-
+  throwIfDbError(error, 'getPublishedPosts');
   return (data ?? []) as Post[];
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-  const supabase = createSupabaseClient();
-  if (!supabase) return getDemoPosts().find((p) => p.slug === slug && p.status === 'published') ?? null;
+  if (shouldUseDemo()) {
+    logDbMode('getPostBySlug');
+    return getDemoPosts().find((p) => p.slug === slug && p.status === 'published') ?? null;
+  }
 
+  const supabase = createSupabaseClient()!;
   const { data, error } = await supabase
     .from('posts')
     .select('*, categories(*)')
@@ -53,25 +58,20 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
     .eq('status', 'published')
     .maybeSingle();
 
-  if (error) {
-    console.error('Failed to fetch post:', error.message);
-    return getDemoPosts().find((p) => p.slug === slug && p.status === 'published') ?? null;
-  }
-
+  throwIfDbError(error, 'getPostBySlug');
   return (data as Post | null) ?? null;
 }
 
 export async function getCategories(): Promise<Category[]> {
-  const supabase = createSupabaseClient();
-  if (!supabase) return getDemoCategories();
-
-  const { data, error } = await supabase.from('categories').select('*').order('name');
-
-  if (error) {
-    console.error('Failed to fetch categories:', error.message);
+  if (shouldUseDemo()) {
+    logDbMode('getCategories');
     return getDemoCategories();
   }
 
+  const supabase = createSupabaseClient()!;
+  const { data, error } = await supabase.from('categories').select('*').order('name');
+
+  throwIfDbError(error, 'getCategories');
   return (data ?? []) as Category[];
 }
 
@@ -79,14 +79,26 @@ export async function getPostsByCategorySlug(categorySlug: string): Promise<{ ca
   const categories = await getCategories();
   const category = categories.find((c) => c.slug === categorySlug) ?? null;
 
-  const supabase = createSupabaseClient();
-  if (!supabase || !category) {
+  if (!category) {
+    if (shouldUseDemo()) {
+      logDbMode('getPostsByCategorySlug');
+      const demoPosts = getDemoPosts().filter(
+        (p) => p.status === 'published' && p.categories?.slug === categorySlug,
+      );
+      return { category: null, posts: demoPosts };
+    }
+    return { category: null, posts: [] };
+  }
+
+  if (shouldUseDemo()) {
+    logDbMode('getPostsByCategorySlug');
     const demoPosts = getDemoPosts().filter(
       (p) => p.status === 'published' && p.categories?.slug === categorySlug,
     );
     return { category, posts: demoPosts };
   }
 
+  const supabase = createSupabaseClient()!;
   const { data, error } = await supabase
     .from('posts')
     .select('*, categories(*)')
@@ -94,17 +106,13 @@ export async function getPostsByCategorySlug(categorySlug: string): Promise<{ ca
     .eq('category_id', category.id)
     .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Failed to fetch category posts:', error.message);
-    return { category, posts: [] };
-  }
-
+  throwIfDbError(error, 'getPostsByCategorySlug');
   return { category, posts: (data ?? []) as Post[] };
 }
 
 function getDemoCategories(): Category[] {
   return [
-    { id: '1', name: 'แก็ดเจ็ต', slug: 'gadgets', created_at: new Date().toISOString() },
+    { id: '1', name: 'แกดเจ็ต', slug: 'gadgets', created_at: new Date().toISOString() },
     { id: '2', name: 'บ้านและการอยู่อาศัย', slug: 'home-living', created_at: new Date().toISOString() },
     { id: '3', name: 'แฟชั่น', slug: 'fashion', created_at: new Date().toISOString() },
     { id: '4', name: 'อาหารและเครื่องดื่ม', slug: 'food-drink', created_at: new Date().toISOString() },

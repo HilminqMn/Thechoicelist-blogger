@@ -1,10 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { isSupabaseConfigured } from './db-config';
+
+export { isSupabaseConfigured };
 
 let browserClient: SupabaseClient | null = null;
-
-export function isSupabaseConfigured(): boolean {
-  return Boolean(import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_SUPABASE_ANON_KEY);
-}
 
 export function getSupabaseConfigError(): string | null {
   const missing: string[] = [];
