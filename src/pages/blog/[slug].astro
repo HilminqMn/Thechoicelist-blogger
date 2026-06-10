@@ -1,0 +1,124 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Navbar from '../../components/Navbar.astro';
+import AffiliateButton from '../../components/AffiliateButton.astro';
+import Footer from '../../components/Footer.astro';
+import {
+  getPostBySlug,
+  renderMarkdown,
+  extractTocFromMarkdown,
+  formatDateShort,
+  estimateReadTime,
+} from '../../lib/supabase';
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/');
+}
+
+const post = await getPostBySlug(slug);
+
+if (!post) {
+  return Astro.redirect('/');
+}
+
+const toc = extractTocFromMarkdown(post.content);
+const htmlContent = await renderMarkdown(post.content);
+const readMins = estimateReadTime(post.content);
+---
+
+<BaseLayout title={`${post.title} — TheChoiceList`} description={post.summary ?? post.title}>
+  <Navbar />
+
+  <section class="relative flex min-h-[45vh] items-center justify-center sm:min-h-[50vh]">
+    {
+      post.image_url ? (
+        <img
+          src={post.image_url}
+          alt=""
+          class="absolute inset-0 h-full w-full object-cover grayscale"
+          loading="eager"
+        />
+      ) : (
+        <div class="absolute inset-0 bg-slate-800" />
+      )
+    }
+    <div class="absolute inset-0 bg-black/65" />
+    <div class="relative z-10 mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 lg:px-8">
+      <h1 class="editorial-title text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
+        {post.title}
+      </h1>
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-slate-300">
+        <span>โดย TheChoiceList</span>
+        <span class="text-slate-500">|</span>
+        <time datetime={post.created_at}>{formatDateShort(post.created_at)}</time>
+        {
+          post.categories && (
+            <>
+              <span class="text-slate-500">|</span>
+              <span>{post.categories.name}</span>
+            </>
+          )
+        }
+        <span class="text-slate-500">|</span>
+        <span>0 ความคิดเห็น</span>
+      </div>
+    </div>
+  </section>
+
+  <article class="bg-white">
+    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <div class="lg:grid lg:grid-cols-[240px_1fr] lg:gap-16 xl:grid-cols-[280px_1fr] xl:gap-20">
+        {
+          toc.length > 0 && (
+            <aside class="toc-sidebar">
+              <div class="sticky top-24">
+                <div class="toc-accent-line" />
+                <h2 class="toc-heading">สารบัญ:</h2>
+                <ol class="toc-list list-none">
+                  {
+                    toc.map((item, index) => (
+                      <li>
+                        <a href={`#${item.id}`}>
+                          <span class="toc-number">{index + 1}.</span>
+                          {item.text}
+                        </a>
+                      </li>
+                    ))
+                  }
+                </ol>
+              </div>
+            </aside>
+          )
+        }
+
+        <div class="min-w-0">
+          <div class="mb-8 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 lg:hidden">
+            {post.categories && <span class="editorial-tag">{post.categories.name}</span>}
+            <span>อ่าน ({readMins} นาที)</span>
+          </div>
+
+          <div class="prose-content max-w-3xl" set:html={htmlContent} />
+
+          {
+            post.affiliate_url && (
+              <div class="mt-12 border border-slate-200 bg-slate-50 p-8 text-center">
+                <p class="mb-4 text-sm text-slate-600">สนใจสินค้าในบทความนี้? จิ้มพิกัดด้านล่างได้เลย</p>
+                <AffiliateButton url={post.affiliate_url} />
+              </div>
+            )
+          }
+
+          <div class="mt-10 border-t border-slate-200 pt-8">
+            <a href="/" class="text-sm font-semibold uppercase tracking-wide text-slate-600 hover:text-slate-900">
+              ← กลับไปบล็อก
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <Footer />
+</BaseLayout>

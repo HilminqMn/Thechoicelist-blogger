@@ -1,0 +1,192 @@
+@import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Anuphan', sans-serif;
+  --color-brand-bg: #f8fafc;
+  --color-brand-text: #0f172a;
+  --color-brand-dark: #020617;
+  --color-brand-accent: #ea580c;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+  }
+
+  body {
+    @apply bg-slate-50 font-sans text-slate-900;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+}
+
+@layer components {
+  .editorial-title {
+    @apply tracking-tight;
+    text-wrap: balance;
+  }
+
+  /* Adcash-style equal-width category filter row (columns set inline via grid-template-columns) */
+  .category-filter-grid {
+    display: grid;
+    gap: 4px;
+  }
+
+  .category-filter-pill {
+    @apply flex min-h-[36px] items-center justify-center border border-slate-300 bg-white px-2 py-2 text-center text-[10px] font-semibold uppercase leading-tight tracking-wider text-slate-600 transition sm:min-h-[40px] sm:px-3 sm:text-xs;
+  }
+
+  .category-filter-pill:hover {
+    @apply border-slate-400 bg-slate-50 text-slate-900;
+  }
+
+  .category-filter-pill-active {
+    @apply border-slate-900 font-bold text-slate-900;
+  }
+
+  /* Navbar links (dark navbar) */
+  .nav-link {
+    @apply px-3 py-2 text-sm font-medium text-slate-300 hover:text-white;
+  }
+
+  .nav-link-active {
+    @apply font-bold text-white;
+  }
+
+  /* Slate category tag on cards */
+  .editorial-tag {
+    @apply inline-block border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-700;
+  }
+
+  .editorial-tag-sm {
+    @apply px-2 py-0.5 text-[9px];
+  }
+
+  .category-pill {
+    @apply absolute top-3 left-3 border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-700;
+  }
+
+  .category-pill-sm {
+    @apply top-2 left-2 px-2 py-0.5 text-[9px];
+  }
+
+  .category-pill-static {
+    @apply relative top-auto left-auto inline-block border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-700;
+  }
+
+  .card-image-bw {
+    @apply grayscale contrast-110 transition duration-500;
+  }
+
+  .group:hover .card-image-bw {
+    @apply grayscale-0 contrast-100;
+  }
+
+  .card-image-overlay {
+    @apply absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent;
+  }
+
+  .card-footer {
+    @apply mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-200 pt-4 text-xs font-medium uppercase tracking-wide text-slate-500;
+  }
+
+  .card-footer-arrow {
+    @apply ml-auto text-lg text-slate-900 transition-transform group-hover:translate-x-1;
+  }
+
+  /* Admin link on dark navbar */
+  .nav-register-link {
+    @apply relative text-sm font-semibold text-white hover:text-slate-200;
+  }
+
+  .nav-register-link::after {
+    content: '';
+    @apply absolute -bottom-0.5 left-0 h-0.5 w-full bg-slate-400;
+  }
+
+  /* Article TOC sidebar */
+  .toc-sidebar {
+    @apply hidden lg:block;
+  }
+
+  .toc-accent-line {
+    @apply mb-4 h-1 w-12 bg-slate-950;
+  }
+
+  .toc-heading {
+    @apply mb-5 text-xs font-bold uppercase tracking-widest text-slate-900;
+  }
+
+  .toc-list {
+    @apply space-y-3 text-sm;
+  }
+
+  .toc-list a {
+    @apply text-slate-600 hover:text-slate-900;
+  }
+
+  .toc-list a:hover {
+    @apply underline decoration-slate-950 decoration-2 underline-offset-4;
+  }
+
+  .toc-number {
+    @apply mr-2 font-bold text-slate-900;
+  }
+
+  /* Article prose */
+  .prose-content h2 {
+    @apply mt-10 mb-4 scroll-mt-28 text-2xl font-bold text-slate-900;
+  }
+
+  .prose-content h3 {
+    @apply mt-8 mb-3 text-xl font-semibold text-slate-900;
+  }
+
+  .prose-content p {
+    @apply mb-5 text-base leading-[1.85] text-slate-700;
+  }
+
+  .prose-content ul {
+    @apply mb-5 list-disc space-y-2 pl-6 leading-[1.85] text-slate-700;
+  }
+
+  .prose-content blockquote {
+    @apply my-6 border-l-4 border-slate-300 py-1 pl-5 text-slate-600 italic;
+  }
+
+  .prose-content a:not(.btn-affiliate) {
+    @apply font-medium text-slate-900 underline decoration-slate-300 decoration-2 underline-offset-2 hover:decoration-slate-900;
+  }
+
+  .btn-affiliate {
+    @apply inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2;
+  }
+
+  .admin-card {
+    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .admin-input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500;
+  }
+
+  .admin-btn {
+    @apply inline-flex items-center justify-center rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .admin-btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50;
+  }
+
+  /* Hero search (static UI) */
+  .hero-search {
+    @apply flex items-center border border-slate-300 bg-white;
+  }
+
+  .hero-search-input {
+    @apply w-full min-w-[200px] border-0 bg-transparent px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none sm:min-w-[280px];
+  }
+}

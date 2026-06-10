@@ -1,0 +1,52 @@
+---
+interface Props {
+  isAdmin?: boolean;
+}
+
+const { isAdmin = false } = Astro.props;
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+const navItems = [
+  { label: 'Home', href: '/' },
+  { label: 'Posts', href: '/posts' },
+  { label: 'Top', href: '/top' },
+  { label: 'Contact', href: '/contact' },
+];
+
+function isActive(href: string): boolean {
+  if (href === '/') return path === '/';
+  return path === href || path.startsWith(`${href}/`);
+}
+---
+
+<header class="sticky top-0 z-50 border-b border-slate-800 bg-slate-950">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="flex h-14 items-center justify-between sm:h-16">
+      <a href="/" class="text-lg font-bold tracking-tight text-white">
+        TheChoiceList
+      </a>
+      {
+        isAdmin ? (
+          <a href="/" class="nav-link">
+            กลับหน้าบ้าน
+          </a>
+        ) : (
+          <nav class="flex items-center gap-4 sm:gap-6" aria-label="Main navigation">
+            {
+              navItems.map((item) => (
+                <a
+                  href={item.href}
+                  class:list={['nav-link', isActive(item.href) && 'nav-link-active']}
+                  aria-current={isActive(item.href) ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              ))
+            }
+          </nav>
+        )
+      }
+    </div>
+  </div>
+</header>
