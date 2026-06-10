@@ -26,6 +26,7 @@ if (!post) {
 const toc = extractTocFromMarkdown(post.content);
 const htmlContent = await renderMarkdown(post.content);
 const readMins = estimateReadTime(post.content);
+const hasToc = toc.length > 0;
 ---
 
 <BaseLayout title={`${post.title} — TheChoiceList`} description={post.summary ?? post.title}>
@@ -69,11 +70,16 @@ const readMins = estimateReadTime(post.content);
 
   <article class="bg-white">
     <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-      <div class="lg:grid lg:grid-cols-[240px_1fr] lg:gap-16 xl:grid-cols-[280px_1fr] xl:gap-20">
+      <div
+        class:list={[
+          hasToc &&
+            'lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-16 xl:grid-cols-[280px_minmax(0,1fr)] xl:gap-20',
+        ]}
+      >
         {
-          toc.length > 0 && (
+          hasToc && (
             <aside class="toc-sidebar">
-              <div class="sticky top-24">
+              <div class="lg:sticky lg:top-24">
                 <div class="toc-accent-line" />
                 <h2 class="toc-heading">สารบัญ:</h2>
                 <ol class="toc-list list-none">
@@ -93,13 +99,13 @@ const readMins = estimateReadTime(post.content);
           )
         }
 
-        <div class="min-w-0">
+        <div class:list={['min-w-0', !hasToc && 'mx-auto w-full max-w-3xl']}>
           <div class="mb-8 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 lg:hidden">
             {post.categories && <span class="editorial-tag">{post.categories.name}</span>}
             <span>อ่าน ({readMins} นาที)</span>
           </div>
 
-          <div class="prose-content max-w-3xl" set:html={htmlContent} />
+          <div class:list={['prose-content w-full', !hasToc && 'max-w-3xl']} set:html={htmlContent} />
 
           {
             post.affiliate_url && (

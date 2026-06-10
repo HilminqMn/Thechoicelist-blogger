@@ -107,9 +107,9 @@
     @apply absolute -bottom-0.5 left-0 h-0.5 w-full bg-slate-400;
   }
 
-  /* Article TOC sidebar */
+  /* Article TOC sidebar — stacks above content on mobile, left column on lg+ */
   .toc-sidebar {
-    @apply hidden lg:block;
+    @apply mb-10 lg:mb-0;
   }
 
   .toc-accent-line {

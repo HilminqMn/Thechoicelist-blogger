@@ -436,7 +436,7 @@ export interface TocItem {
 export function extractTocFromMarkdown(content: string): TocItem[] {
   const items: TocItem[] = [];
   for (const line of content.split('\n')) {
-    const match = line.match(/^(#{2})\s+(.+)$/);
+    const match = line.replace(/\r$/, '').match(/^(#{2})\s+(.+)$/);
     if (match) {
       const text = match[2].trim();
       items.push({ id: slugify(text), text, level: 2 });
