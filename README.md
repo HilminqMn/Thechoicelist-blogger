@@ -23,6 +23,9 @@ cp .env.example .env
 
 # 4. รัน dev server
 npm run dev
+
+# 5. ตรวจสอบ production/local health
+npm run setup:check
 ```
 
 เปิด http://localhost:4321
@@ -31,6 +34,7 @@ npm run dev
 
 ดูคู่มือฉบับเต็ม:
 
+- **[docs/COMPLETE_SETUP.md](docs/COMPLETE_SETUP.md)** — checklist ครบวงจร zero → production
 - **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** — ตั้งค่า DB, migrations, env vars, health check
 - **[docs/SUPABASE_OAUTH_SETUP.md](docs/SUPABASE_OAUTH_SETUP.md)** — Google OAuth สำหรับ Admin
 - **[docs/AI_CRON_SETUP.md](docs/AI_CRON_SETUP.md)** — AI สร้างบทความอัตโนมัติ + Cron

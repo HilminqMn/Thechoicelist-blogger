@@ -64,10 +64,11 @@ npx supabase secrets set AI_API_KEY=sk-xxxxxxxx
    - **Timezone:** UTC
 3. บันทึก
 
-### วิธี B: SQL (pg_cron + pg_net)
+### วิธี B: SQL (pg_cron + pg_net + Vault)
 
-1. เปิด extensions: **pg_cron**, **pg_net** (Database → Extensions)
-2. รัน SQL จาก `supabase/migrations/006_cron_schedule.sql`
+1. เปิด extensions: **pg_cron**, **pg_net**, **supabase_vault** (Database → Extensions)
+2. เก็บ project URL และ service role key ใน Vault (ดูคำสั่งในไฟล์)
+3. รัน SQL จาก `supabase/migrations/006_cron_schedule.sql`
 
 ## ทดสอบด้วยตนเอง
 

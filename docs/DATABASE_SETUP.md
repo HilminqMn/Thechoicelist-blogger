@@ -15,6 +15,7 @@
 - [ ] รัน migration `003_seed_admin_user.sql` (หรือแก้อีเมลแอดมิน)
 - [ ] รัน migration `004_is_admin_email_fallback.sql`
 - [ ] รัน migration `005_seed_sample_posts.sql`
+- [ ] รัน migration `006_cron_schedule.sql` (หลัง deploy Edge Function — หรือใช้ Dashboard Schedules)
 - [ ] ตั้ง env vars บน Vercel + local `.env`
 - [ ] ตรวจ `/api/health` ว่า `mode: "supabase"` และ `ok: true`
 - [ ] ตั้ง OAuth (ดู [SUPABASE_OAUTH_SETUP.md](./SUPABASE_OAUTH_SETUP.md))
