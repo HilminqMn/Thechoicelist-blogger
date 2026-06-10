@@ -14,8 +14,19 @@ export function getSupabaseConfigError(): string | null {
   return `ยังไม่ได้ตั้งค่า ${missing.join(' และ ')} บน Vercel (Settings → Environment Variables) แล้ว Redeploy`;
 }
 
-export function createBrowserSupabaseClient(): SupabaseClient | null {
-  if (browserClient) return browserClient;
+export type BrowserSupabaseOptions = {
+  /** เปิดเฉพาะตอนมี OAuth callback ใน URL — ป้องกัน getSession() ค้างตอนโหลดหน้า admin ปกติ */
+  detectSessionInUrl?: boolean;
+};
+
+export function createBrowserSupabaseClient(
+  options: BrowserSupabaseOptions = {},
+): SupabaseClient | null {
+  const detectSessionInUrl = options.detectSessionInUrl ?? false;
+
+  if (browserClient) {
+    return browserClient;
+  }
 
   const url = import.meta.env.PUBLIC_SUPABASE_URL;
   const key = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -25,13 +36,18 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
   browserClient = createClient(url, key, {
     auth: {
       flowType: 'pkce',
-      detectSessionInUrl: true,
+      detectSessionInUrl,
       persistSession: true,
       autoRefreshToken: true,
     },
   });
 
   return browserClient;
+}
+
+/** รีเซ็ต singleton หลัง signOut หรือเมื่อต้องสร้าง client ใหม่ด้วย options ต่างกัน */
+export function resetBrowserSupabaseClient(): void {
+  browserClient = null;
 }
 
 /** redirectTo สำหรับ OAuth — ใช้ origin ปัจจุบัน (localhost หรือ Vercel) */

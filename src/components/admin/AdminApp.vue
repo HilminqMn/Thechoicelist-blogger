@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, defineAsyncComponent } from 'vue';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   createBrowserSupabaseClient,
@@ -10,10 +10,13 @@ import AdminLogin from './AdminLogin.vue';
 import AdminSignup from './AdminSignup.vue';
 import AdminDashboardLayout from './AdminDashboardLayout.vue';
 import PostsTable from './PostsTable.vue';
-import PostEditor from './PostEditor.vue';
 import type { Category, Post, PostFormData } from '../../lib/types';
 
-const supabase = ref<SupabaseClient | null>(createBrowserSupabaseClient());
+const PostEditor = defineAsyncComponent(() => import('./PostEditor.vue'));
+
+const AUTH_INIT_TIMEOUT_MS = 10_000;
+
+const supabase = ref<SupabaseClient | null>(null);
 const configError = ref(getSupabaseConfigError() ?? '');
 
 const session = ref<{ user: { email?: string } } | null>(null);
@@ -125,12 +128,31 @@ function readOAuthCallbackError(): string | null {
   return mapAuthErrorMessage(oauthError);
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+}
+
 async function handleAuthCallback(): Promise<void> {
   const oauthError = readOAuthCallbackError();
   if (oauthError) {
     errorMessage.value = oauthError;
     cleanAuthUrl();
+    return;
   }
+
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (!code || !supabase.value) return;
+
+  const { error } = await supabase.value.auth.exchangeCodeForSession(code);
+  if (error) {
+    errorMessage.value = mapAuthErrorMessage(error.message);
+  }
+  cleanAuthUrl();
 }
 
 async function loadSession() {
@@ -197,28 +219,31 @@ async function initSession() {
 
 async function init() {
   if (!supabase.value) {
-    loading.value = false;
     return;
   }
 
   const hadAuthCallback = hasAuthCallbackParams();
 
   try {
-    await handleAuthCallback();
-    await loadSession();
+    await withTimeout(
+      (async () => {
+        await handleAuthCallback();
+        await loadSession();
 
-    if (hadAuthCallback && !errorMessage.value) {
-      if (!session.value) {
-        errorMessage.value =
-          'เข้าสู่ระบบไม่สำเร็จหลัง redirect จาก Google — ตรวจ Redirect URLs ใน Supabase ว่ามี ' +
-          `${getAdminRedirectUrl()} และ redeploy Vercel หลังตั้ง env vars`;
-      }
-      cleanAuthUrl();
-    }
+        if (hadAuthCallback && !errorMessage.value && !session.value) {
+          errorMessage.value =
+            'เข้าสู่ระบบไม่สำเร็จหลัง redirect จาก Google — ตรวจ Redirect URLs ใน Supabase ว่ามี ' +
+            `${getAdminRedirectUrl()} และ redeploy Vercel หลังตั้ง env vars`;
+        }
 
-    await initSession();
+        await initSession();
+      })(),
+      AUTH_INIT_TIMEOUT_MS,
+      'โหลดหน้าแอดมินใช้เวลานานเกินไป กรุณารีเฟรชหน้าหรือลองเข้าสู่ระบบใหม่',
+    );
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
+    session.value = null;
   } finally {
     loading.value = false;
   }
@@ -372,6 +397,8 @@ async function handleDelete(postId: string) {
 }
 
 onMounted(() => {
+  supabase.value = createBrowserSupabaseClient({ detectSessionInUrl: false });
+
   if (!supabase.value) {
     loading.value = false;
     return;
@@ -381,7 +408,11 @@ onMounted(() => {
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       session.value = newSession;
       if (newSession) {
-        await initSession();
+        try {
+          await initSession();
+        } catch (err) {
+          errorMessage.value = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
+        }
       }
     } else if (event === 'SIGNED_OUT') {
       session.value = null;
@@ -389,7 +420,7 @@ onMounted(() => {
     }
   });
 
-  init();
+  void init();
 });
 </script>
 
@@ -464,7 +495,7 @@ onMounted(() => {
       />
 
       <PostEditor
-        v-else
+        v-if="view === 'editor'"
         :post="editingPost"
         :categories="categories"
         @save="handleSave"
