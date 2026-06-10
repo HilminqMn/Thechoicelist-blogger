@@ -153,6 +153,10 @@
     @apply mb-5 list-disc space-y-2 pl-6 leading-[1.85] text-slate-700;
   }
 
+  .prose-content ol {
+    @apply mb-5 list-decimal space-y-2 pl-6 leading-[1.85] text-slate-700;
+  }
+
   .prose-content blockquote {
     @apply my-6 border-l-4 border-slate-300 py-1 pl-5 text-slate-600 italic;
   }

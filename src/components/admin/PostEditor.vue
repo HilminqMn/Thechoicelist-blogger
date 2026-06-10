@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import type { Category, Post, PostFormData } from '../../lib/types';
+import { contentForEditor } from '../../lib/supabase';
+import RichTextEditor from './RichTextEditor.vue';
 
 const props = defineProps<{
   post: Post | null;
@@ -34,11 +36,11 @@ function slugify(text: string) {
 
 watch(
   () => props.post,
-  (post) => {
+  async (post) => {
     if (post) {
       form.title = post.title;
       form.slug = post.slug;
-      form.content = post.content;
+      form.content = await contentForEditor(post.content);
       form.summary = post.summary ?? '';
       form.image_url = post.image_url ?? '';
       form.category_id = post.category_id ?? '';
@@ -64,8 +66,16 @@ function onTitleInput() {
   }
 }
 
+const contentError = ref(false);
+
+function isContentEmpty(html: string): boolean {
+  const text = html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+  return !text;
+}
+
 function submit() {
-  if (!form.title.trim() || !form.slug.trim() || !form.content.trim()) {
+  contentError.value = isContentEmpty(form.content);
+  if (!form.title.trim() || !form.slug.trim() || contentError.value) {
     alert('กรุณากรอกหัวข้อ, slug และเนื้อหา');
     return;
   }
@@ -160,13 +170,9 @@ function submit() {
         </div>
 
         <div class="space-y-1.5">
-          <label class="text-sm font-medium text-slate-700">เนื้อหา (Markdown)</label>
-          <textarea
-            v-model="form.content"
-            rows="14"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-            required
-          />
+          <label class="text-sm font-medium text-slate-700">เนื้อหา</label>
+          <RichTextEditor v-model="form.content" />
+          <p v-if="contentError" class="text-xs text-red-600">กรุณากรอกเนื้อหาบทความ</p>
         </div>
 
         <div class="flex flex-wrap gap-3 border-t border-slate-200 pt-5">

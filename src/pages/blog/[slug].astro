@@ -5,8 +5,8 @@ import AffiliateButton from '../../components/AffiliateButton.astro';
 import Footer from '../../components/Footer.astro';
 import {
   getPostBySlug,
-  renderMarkdown,
-  extractTocFromMarkdown,
+  renderPostContent,
+  extractTocFromContent,
   formatDateShort,
   estimateReadTime,
 } from '../../lib/supabase';
@@ -23,8 +23,8 @@ if (!post) {
   return Astro.redirect('/');
 }
 
-const toc = extractTocFromMarkdown(post.content);
-const htmlContent = await renderMarkdown(post.content);
+const toc = extractTocFromContent(post.content);
+const htmlContent = await renderPostContent(post.content);
 const readMins = estimateReadTime(post.content);
 const hasToc = toc.length > 0;
 ---

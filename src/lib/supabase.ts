@@ -422,8 +422,18 @@ export function formatDateShort(dateString: string): string {
   }).format(new Date(dateString));
 }
 
+export function isHtmlContent(content: string): boolean {
+  const trimmed = content.trim();
+  return trimmed.startsWith('<') && /<\/[a-z][\w-]*>/i.test(trimmed);
+}
+
+export function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export function estimateReadTime(content: string): number {
-  const words = content.trim().split(/\s+/).filter(Boolean).length;
+  const text = isHtmlContent(content) ? stripHtmlTags(content) : content;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));
 }
 
@@ -443,6 +453,25 @@ export function extractTocFromMarkdown(content: string): TocItem[] {
     }
   }
   return items;
+}
+
+export function extractTocFromHtml(content: string): TocItem[] {
+  const items: TocItem[] = [];
+  const headingRegex = /<h2[^>]*(?:\sid=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/h2>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = headingRegex.exec(content)) !== null) {
+    const text = match[2].replace(/<[^>]+>/g, '').trim();
+    if (!text) continue;
+    const id = match[1]?.trim() || slugify(text);
+    items.push({ id, text, level: 2 });
+  }
+
+  return items;
+}
+
+export function extractTocFromContent(content: string): TocItem[] {
+  return isHtmlContent(content) ? extractTocFromHtml(content) : extractTocFromMarkdown(content);
 }
 
 let markdownConfigured = false;
@@ -465,4 +494,27 @@ export async function renderMarkdown(content: string): Promise<string> {
   }
 
   return marked.parse(content) as string;
+}
+
+function addIdsToHtmlHeadings(html: string): string {
+  return html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (full, attrs: string, inner: string) => {
+    if (/\sid=/i.test(attrs)) return full;
+    const text = inner.replace(/<[^>]+>/g, '').trim();
+    if (!text) return full;
+    return `<h2${attrs} id="${slugify(text)}">${inner}</h2>`;
+  });
+}
+
+export async function renderPostContent(content: string): Promise<string> {
+  if (isHtmlContent(content)) {
+    return addIdsToHtmlHeadings(content);
+  }
+  return renderMarkdown(content);
+}
+
+/** Convert stored content to HTML for the TipTap editor (legacy markdown → HTML). */
+export async function contentForEditor(content: string): Promise<string> {
+  if (!content.trim()) return '';
+  if (isHtmlContent(content)) return content;
+  return renderMarkdown(content);
 }
